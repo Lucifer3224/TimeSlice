@@ -1,1 +1,75 @@
+Description of the Code: Non-Preemptive Shortest Job First (SJF) Scheduler
+This Python program implements the Non-Preemptive Shortest Job First (SJF) Scheduling Algorithm using an object-oriented approach. The SJF algorithm selects the process with the shortest burst time for execution when the CPU is free.
 
+Class: NonPreemptiveSJF
+The main functionality is encapsulated in the NonPreemptiveSJF class, which manages the scheduling, execution, and visualization of tasks.
+
+1. Constructor (__init__)
+task_list: A list of tuples representing the processes/tasks. Each tuple contains:
+
+Task ID (integer)
+
+Arrival Time (integer)
+
+Burst Time (Execution Duration) (integer)
+
+The processes are sorted by arrival time and burst time (in case of a tie) to facilitate SJF execution.
+
+Initializes several attributes to store results:
+
+finish_times → Stores the completion time of each task.
+
+delay_times → Stores the waiting time for each task.
+
+response_times → Stores the turnaround time for each task.
+
+timeline → Stores the execution sequence of tasks.
+
+2. process_tasks() - (Scheduling Execution)
+Simulates the execution of processes using the SJF non-preemptive approach.
+
+Maintains:
+
+current_moment → Tracks the current execution time.
+
+pending_tasks → Holds tasks that are ready for execution.
+
+processed_tasks → Keeps track of completed tasks.
+
+Processing Steps:
+
+Iterates over tasks and adds them to pending_tasks if their arrival time has passed.
+
+Selects the task with the shortest burst time from pending_tasks.
+
+Updates completion time, turnaround time, and waiting time.
+
+Updates the Gantt chart timeline.
+
+3. show_results() - (Displays Scheduling Table and Stats)
+Prints a formatted table showing:
+
+Task ID
+
+Arrival Time
+
+Burst Time
+
+Waiting Time
+
+Turnaround Time
+
+Calculates and prints:
+
+Average Waiting Time (delay time)
+
+Average Turnaround Time (response time)
+
+Calls the generate_gantt_chart() method to visualize the scheduling order.
+
+4. generate_gantt_chart() - (Gantt Chart Visualization)
+Uses Matplotlib to draw a Gantt chart that visually represents the execution timeline.
+
+Each task is displayed as a horizontal bar, showing its execution period.
+
+Labels are added to indicate task execution order.
