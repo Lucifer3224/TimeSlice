@@ -5,10 +5,11 @@ from Scheduler.SJF import SJF
 from Scheduler.FCFS import FCFS
 from Scheduler.Priority import Priority
 from Scheduler.RR import RR
-
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
 class SchedulerSimulator(object):
-       def __init__(self, scheduler_type, preemptive=False, time_quantum=None):
+       def __init__(self, scheduler_type, preemptive=False,live=1, time_quantum=None):
             self.scheduler_type = scheduler_type
             self.time_quantum = time_quantum
             self.preemptive = preemptive
@@ -17,6 +18,7 @@ class SchedulerSimulator(object):
             self.time = 0
             self.running = False
             self.lock = threading.Lock()
+            self.live=live
 
 
 
@@ -45,12 +47,13 @@ class SchedulerSimulator(object):
                 print("----------------------------------------")
 
 
+       
+   
 
        def print_results(self):
             process_in_timeline = [f"P{pid}" for pid in self.timeline]
             gantt_line = " -> ".join(process_in_timeline)
-            print("\nGantt Chart:", gantt_line)
-
+            print("\n📊Gantt Chart:", gantt_line)
             waiting_times = []
             turnaround_times = []
             for p in self.processes:
@@ -60,8 +63,10 @@ class SchedulerSimulator(object):
                 waiting_times.append(waiting_t)
             print(f"Average Waiting Time: {sum(waiting_times) / len(waiting_times):.2f}")
             print(f"Average Turnaround Time: {sum(turnaround_times) / len(turnaround_times):.2f}")
+            print("Finish,cannot add new proccess")
+          
 
-
+       
 
 
        def run(self):
@@ -71,7 +76,7 @@ class SchedulerSimulator(object):
             if self.scheduler_type == "FCFS":
                 scheduler = FCFS(self)
             elif self.scheduler_type == "SJF":
-                scheduler = SJF(self, self.preemptive)
+                scheduler = SJF(self, self.preemptive,self.live)
             elif self.scheduler_type == "Priority":
                 scheduler = Priority(self, self.preemptive)
             elif self.scheduler_type == "RR":
@@ -81,3 +86,7 @@ class SchedulerSimulator(object):
                 self.print_results()
             else:
                 print("Invalid scheduler type.")
+            
+            
+
+

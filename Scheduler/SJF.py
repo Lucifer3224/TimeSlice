@@ -1,9 +1,10 @@
 import time
 
 class SJF:
-    def __init__(self, simulator, preemptive=False):
+    def __init__(self, simulator, preemptive=False, live=1):
         self.sim = simulator    # instance of ScheduleSimulator
         self.preemptive = preemptive
+        self.live=live
 
     def run(self):
         completed = set()  # automatically removes duplicates & order it 
@@ -22,7 +23,8 @@ class SJF:
                     p.start_time = self.sim.time
 
                 if self.preemptive:
-                    time.sleep(1)    # to make real-time simulation
+                    if self.live:
+                      time.sleep(1)    # to make real-time simulation
                     p.remaining_time -= 1
                     self.sim.timeline.append(p.pid)
                     self.sim.print_status()
@@ -30,14 +32,14 @@ class SJF:
                     if p.remaining_time == 0:
                         p.completion_time = self.sim.time
                         completed.add(p.pid)
-                #else:
-                    #non preemptive fun 
-                
+               # else:
+                  #non preemptive function
                     
 
 
             else:   #no process in ready array 
-                time.sleep(1)
+                if self.live:
+                  time.sleep(1)
                 self.sim.timeline.append("Idle")
                 self.sim.print_status()
                 self.sim.time += 1

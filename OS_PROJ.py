@@ -6,6 +6,15 @@ from collections import deque
 
 
 if __name__ == "__main__":
+    print("Select Scheduler in real time:")
+    print("1. Yes\n2. No")
+    
+    choice_live = input("Enter choice (1-2): ")
+    if choice_live == '1':
+        live=1
+    elif choice_live == '2':
+        live=0
+
     print("Select Scheduler Type:")
     print("1. FCFS\n2. SJF\n3. Priority\n4. Round Robin")
     choice = input("Enter choice (1-4): ")
@@ -14,7 +23,7 @@ if __name__ == "__main__":
         scheduler = SchedulerSimulator("FCFS")
     elif choice == '2':
         preemptive = input("Preemptive? (y/n): ").lower() == 'y'
-        scheduler = SchedulerSimulator("SJF", preemptive=preemptive)
+        scheduler = SchedulerSimulator("SJF", preemptive=preemptive, live=live)
     elif choice == '3':
         preemptive = input("Preemptive? (y/n): ").lower() == 'y'
         scheduler = SchedulerSimulator("Priority", preemptive=preemptive)
@@ -38,6 +47,8 @@ if __name__ == "__main__":
     # Start scheduler in a separate thread
     scheduler_thread = threading.Thread(target=scheduler.run)
     scheduler_thread.start()
+   
+
 
     # Allow dynamic process addition
     while scheduler_thread.is_alive():
@@ -52,5 +63,8 @@ if __name__ == "__main__":
             scheduler.add_process(Process(pid, at, bt, pr))
         else:
             break
+    
 
+   
     scheduler_thread.join()
+    
