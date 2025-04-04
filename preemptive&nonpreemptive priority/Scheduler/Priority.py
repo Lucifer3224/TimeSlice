@@ -1,11 +1,12 @@
 import time
 
 class Priority:
-    
-    def __init__(self, simulator, preemptive=False):
+
+    def __init__(self, simulator, preemptive=False,live=1):
         self.sim = simulator  # instance of ScheduleSimulator
         self.preemptive = preemptive
         self.current_process = None  # Track the running process
+        self.live=live
 
     def run(self):
         completed = set()
@@ -27,7 +28,8 @@ class Priority:
                     if p.start_time is None:
                         p.start_time = self.sim.time
 
-                    time.sleep(1)  # Real-time delay for simulation
+                    if self.live:
+                        time.sleep(1)  # Real-time delay for simulation
                     p.remaining_time -= 1
                     self.sim.timeline.append(p.pid)
                     self.sim.print_status()
@@ -44,7 +46,8 @@ class Priority:
                         p.start_time = self.sim.time
 
                     while p.remaining_time > 0:
-                        time.sleep(1)
+                        if self.live:
+                            time.sleep(1)
                         p.remaining_time -= 1
                         self.sim.timeline.append(p.pid)
                         self.sim.print_status()
@@ -54,7 +57,8 @@ class Priority:
                     completed.add(p.pid)
 
             else:  # No ready process, so the CPU is idle
-                time.sleep(1)
+                if self.live:
+                    time.sleep(1)
                 self.sim.timeline.append("Idle")
                 self.sim.print_status()
                 self.sim.time += 1
