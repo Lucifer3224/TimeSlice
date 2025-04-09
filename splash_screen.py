@@ -1,16 +1,18 @@
 import tkinter as tk
 from PIL import Image, ImageTk
 import time
-from scheduler_page import SchedulerPage
-from home_screen import HomeScreen
 
+from GUI_Modules.output import OutputPage
+from GUI_Modules.scheduler_page import SchedulerPage
+from GUI_Modules.home_screen import HomeScreen
+from GUI_Modules.live_scheduler_page import LiveSchedulerPage
 
 class SplashScreenApp:
     def __init__(self, root):
         self.root = root
         self.root.title("TimeSlice")
         self.root.overrideredirect(False)  # Allow standard window decoration
-
+        self.process_list = None
         # Initialize theme - using logo colors
         self.dark_mode = False
         self.logo_bg_color = "#F5EDD7"  # Cream/beige from logo
@@ -124,15 +126,75 @@ class SplashScreenApp:
         if 'scheduler' in self.page_screens:
             scheduler_page = self.page_screens['scheduler']
         else:
-            # Create new scheduler page and store reference
+            # Create new scheduler page and store reference.
+            # Note: Pass self.show_home_screen as navigate_home and
+            # self.show_live_scheduler_page as navigate_live_scheduler.
             scheduler_page = SchedulerPage(self.root, self.colors, self.window_width, self.window_height,
-                                           self.show_home_screen)
+                                           self.show_home_screen, self.show_live_scheduler_page)
             self.screens.append(scheduler_page)
             self.page_screens['scheduler'] = scheduler_page
 
         # Use slide transition for page navigation
         self.slide_transition(self.screens[self.current_screen], scheduler_page, direction="left")
         self.current_screen = self.screens.index(scheduler_page)
+
+    def show_live_scheduler_page(self, process_list, scheduler_type="FCFS"):
+        """Show the Live Scheduler Page"""
+        live_scheduler_page = None
+
+        if 'live_scheduler' in self.page_screens:
+            # Replace existing page to ensure we get fresh parameters
+            live_scheduler_page = LiveSchedulerPage(
+                self.root, self.colors, self.window_width, self.window_height,
+                self.show_home_screen, process_list, scheduler_type,
+                navigate_to_output=self.show_output_page  # Add this parameter
+            )
+            self.screens[self.screens.index(self.page_screens['live_scheduler'])] = live_scheduler_page
+            self.page_screens['live_scheduler'] = live_scheduler_page
+        else:
+            live_scheduler_page = LiveSchedulerPage(
+                self.root, self.colors, self.window_width, self.window_height,
+                self.show_home_screen, process_list, scheduler_type,
+                navigate_to_output=self.show_output_page  # Add this parameter
+            )
+            self.screens.append(live_scheduler_page)
+            self.page_screens['live_scheduler'] = live_scheduler_page
+
+        self.slide_transition(self.screens[self.current_screen], live_scheduler_page, direction="left")
+        self.current_screen = self.screens.index(live_scheduler_page)
+
+    def show_output_page(self, completed_processes=None, process_execution_history=None):
+        """Show the Output Page with scheduling results"""
+        output_page = None
+
+        # Get the scheduler type from the current live scheduler page
+        scheduler_type = "FCFS"  # Default
+        if 'live_scheduler' in self.page_screens:
+            scheduler_type = self.page_screens['live_scheduler'].scheduler_type
+
+        if 'output_page' in self.page_screens:
+            # Replace existing page
+            output_page = OutputPage(
+                self.root, self.colors, self.window_width, self.window_height,
+                self.show_home_screen,
+                lambda: self.show_live_scheduler_page(self.process_list, scheduler_type),
+                completed_processes, process_execution_history, scheduler_type
+            )
+            self.screens[self.screens.index(self.page_screens['output_page'])] = output_page
+            self.page_screens['output_page'] = output_page
+        else:
+            output_page = OutputPage(
+                self.root, self.colors, self.window_width, self.window_height,
+                self.show_home_screen,
+                lambda: self.show_live_scheduler_page(self.process_list, scheduler_type),
+                completed_processes, process_execution_history, scheduler_type
+            )
+            self.screens.append(output_page)
+            self.page_screens['output_page'] = output_page
+
+        self.slide_transition(self.screens[self.current_screen], output_page, direction="left")
+        self.current_screen = self.screens.index(output_page)
+
 
     def toggle_theme(self):
         """Switch between dark and light mode"""
@@ -144,7 +206,6 @@ class SplashScreenApp:
         """Update colors of all existing screens"""
         for screen in self.screens:
             screen.configure(bg=self.colors['background'])
-            # Check if the screen has an update_colors method
             if hasattr(screen, 'update_colors'):
                 screen.update_colors(self.colors)
             else:
@@ -218,53 +279,37 @@ class SplashScreenApp:
 
     def fade_transition(self, current_frame, next_frame):
         """Animate fade-out fade-in transition between screens"""
-        # Place the next frame in position but make it transparent
         next_frame.place(x=0, y=0, width=self.window_width, height=self.window_height)
         next_frame.lift()
-
-        # Create a semi-transparent overlay on next_frame
         overlay = tk.Frame(next_frame, bg=self.colors['background'])
         overlay.place(x=0, y=0, relwidth=1, relheight=1)
-
-        # Fade out current frame
         steps = 15
         for i in range(steps):
             alpha = 1 - (i / steps)
-            # Create darkening effect on current frame
             current_frame.update()
             time.sleep(0.03)
-
-        # Fade in next frame
         for i in range(steps + 1):
             alpha = i / steps
-            # Adjust opacity of overlay to create fade-in effect
             overlay.place_configure(relwidth=1 - alpha)
             next_frame.update()
             time.sleep(0.03)
-
-        # Remove overlay and hide current frame
         overlay.destroy()
         current_frame.place_forget()
 
     def slide_transition(self, current_frame, next_frame, direction="left"):
         """Animate slide transition between screens"""
-        # Initialize next frame position based on direction
         if direction == "left":
             next_frame.place(x=self.window_width, y=0, width=self.window_width, height=self.window_height)
         elif direction == "right":
             next_frame.place(x=-self.window_width, y=0, width=self.window_width, height=self.window_height)
-        else:  # "none" for initial placement
+        else:
             next_frame.place(x=0, y=0, width=self.window_width, height=self.window_height)
             current_frame.place_forget()
             return
 
         next_frame.lift()
-
-        # Animation steps
         steps = 20
         step_size = self.window_width // steps
-
-        # Perform animation
         for i in range(steps + 1):
             if direction == "left":
                 current_x = -i * step_size
@@ -272,13 +317,10 @@ class SplashScreenApp:
             elif direction == "right":
                 current_x = i * step_size
                 next_x = -self.window_width + current_x
-
             current_frame.place(x=current_x, y=0, width=self.window_width, height=self.window_height)
             next_frame.place(x=next_x, y=0, width=self.window_width, height=self.window_height)
             self.root.update()
             time.sleep(0.01)
-
-        # Final cleanup
         current_frame.place_forget()
         next_frame.place(x=0, y=0, width=self.window_width, height=self.window_height)
 
@@ -290,17 +332,17 @@ class SplashScreenApp:
             return
         if self.current_screen == 0 and len(self.screens) == 1:
             self.create_app_name_screen()
-
-            # Use fade transition only between first and second splash screens
             current_frame = self.screens[self.current_screen]
             next_frame = self.screens[self.current_screen + 1]
             self.fade_transition(current_frame, next_frame)
             self.current_screen += 1
-
         elif self.current_screen == 1 and len(self.screens) == 2:
-            # This will use slide transition as defined in show_home_screen
             self.show_home_screen()
-
         if self.current_screen == 2:
             self.root.unbind("<Key>")
             self.root.unbind("<Button-1>")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = SplashScreenApp(root)
+    root.mainloop()
