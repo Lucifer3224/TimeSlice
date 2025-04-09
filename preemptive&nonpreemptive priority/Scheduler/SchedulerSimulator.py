@@ -71,9 +71,9 @@ class SchedulerSimulator(object):
             if self.scheduler_type == "FCFS":
                 scheduler = FCFS(self)
             elif self.scheduler_type == "SJF":
-                scheduler = SJF(self, self.preemptive)
+                scheduler = SJF(self, self.preemptive,self.live)
             elif self.scheduler_type == "Priority":
-                scheduler = Priority(self, self.preemptive)
+                scheduler = Priority(self, self.preemptive,self.live)
             elif self.scheduler_type == "RR":
                 scheduler = RR(self, self.time_quantum)
             if scheduler:
