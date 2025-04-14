@@ -1,12 +1,10 @@
 class SJFScheduler:
-    def __init__(self, processes):
-        """
-        Initialize the SJF Scheduler
-
-        Args:
-            processes: List of process tuples (name, burst_time, arrival_time, is_preemptive)
-        """
-        pass
+    def __init__(self, tasks):
+        self.tasks = tasks
+        self.pending_tasks = [(task_name, arrival_time, burst_time) for task_name, arrival_time, burst_time in tasks]
+        self.ready_queue = []
+        self.completed_tasks = []
+        self.timeline = []
 
     def update_queues(self, current_time):
         """
@@ -21,16 +19,19 @@ class SJFScheduler:
         pass
 
     def run_non_preemptive(self, current_time):
-        """
-        Non-preemptive SJF: Decide which process to run based on arrival and burst time.
+        for task in list(self.pending_tasks):
+            if task[1] <= current_time:
+                self.ready_queue.append(task)
+                self.pending_tasks.remove(task)
+        if not self.ready_queue:
+            return None, 0
+        self.ready_queue.sort(key=lambda x: x[2])
+        selected_task = self.ready_queue.pop(0)
+        remaining_time = selected_task[2]
+        self.timeline.extend([selected_task[0]] * remaining_time)
+        self.completed_tasks.append(selected_task)
 
-        Args:
-            current_time: Current simulation time
-
-        Returns:
-            tuple: (selected_process, remaining_time) or (None, 0) if no process is selected
-        """
-        pass
+        return selected_task, remaining_time
 
     def run_preemptive(self, current_time, current_process=None, remaining_time=0):
         """
