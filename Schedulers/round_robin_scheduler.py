@@ -1,5 +1,45 @@
 from collections import deque
-from sjf_scheduler import process  # Assuming the 'process' class exists with burst_time, arrival_time, remaining_time
+
+class process:
+    def __init__(self, name, burst_time, arrival_time):
+        """
+        Represents a process in CPU scheduling.
+
+        Args:
+            name (str): Name of the process (e.g., "P1")
+            burst_time (int): Total CPU burst time required
+            arrival_time (int): Time at which the process arrives in the system
+        """
+        self.name = name
+        self.burst_time = burst_time
+        self.arrival_time = arrival_time
+        self.remaining_time = burst_time  # Remaining time during execution
+        self.start_time = None  # Time when the process starts execution
+        self.completion_time = None  # Time when the process finishes execution
+        self.time_quantum = None  # Optional: Time quantum (used in Round Robin)
+
+    def turnaround_time(self):
+        """
+        Calculates turnaround time.
+
+        Returns:
+            int: Turnaround Time = Completion Time - Arrival Time
+        """
+        return self.completion_time - self.arrival_time if self.completion_time is not None else None
+
+    def waiting_time(self):
+        """
+        Calculates waiting time.
+
+        Returns:
+            int: Waiting Time = Turnaround Time - Burst Time
+        """
+        tat = self.turnaround_time()
+        return tat - self.burst_time if tat is not None else None
+
+    def __repr__(self):
+        return f"{self.name}(AT={self.arrival_time}, BT={self.burst_time}, RT={self.remaining_time})"
+
 
 
 class RoundRobinScheduler:
@@ -8,7 +48,7 @@ class RoundRobinScheduler:
         Initialize the Round Robin Scheduler
 
         Args:
-            processes: List of process tuples (name, burst_time, arrival_time, time_quantum)
+            processes: List of process objects (name, burst_time, arrival_time)
             default_quantum: Default time quantum if not specified in process
         """
         self.default_quantum = default_quantum
