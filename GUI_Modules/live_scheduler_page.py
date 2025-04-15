@@ -737,7 +737,8 @@ class LiveSchedulerPage(tk.Frame):
                         )
 
                 # Preemptive Priority check
-                elif self.scheduler_type == "Priority" and len(self.current_process) > 4 and self.current_process[4]:
+                elif self.scheduler_type == "Priority" and hasattr(self.current_process, 'priority') and hasattr(
+                        self.current_process, 'preemptive') and self.current_process.preemptive:
                     self.current_process, remaining_time, preempted = scheduler.run_preemptive(
                         self.current_time, self.current_process, remaining_time
                     )
