@@ -1,78 +1,108 @@
-from sjf_scheduler import process
-
-class PriorityProcess(process):
-    def __init__(self, name, burst_time, arrival_time, priority):
-        super().__init__(name, burst_time, arrival_time)
-        self.priority = priority
-
 class PriorityScheduler:
-    def __init__(self, processes):
-        self.time = 0
-        self.original_processes = [
-            PriorityProcess(name, bt, at, pr) for name, bt, at, pr in processes
+    def __init__(self, tasks):
+        self.tasks = tasks
+        self.pending_tasks = [
+            (task_name, arrival_time, burst_time, priority) for task_name, arrival_time, burst_time, priority in tasks
         ]
-        self.waiting_queue = self.original_processes.copy()
         self.ready_queue = []
+        self.completed_tasks = []
         self.timeline = []
-        self.completed = []
 
     def update_queues(self, current_time):
-        newly_arrived = []
-        for p in list(self.waiting_queue):
-            if p.arrival_time <= current_time:
-                self.ready_queue.append(p)
-                newly_arrived.append(p)
-                self.waiting_queue.remove(p)
-        return newly_arrived
+        for task in list(self.pending_tasks):
+            task_name, arrival_time, burst_time, priority = task
+            if arrival_time <= current_time:
+                # Add task with extra field: original burst time for later use
+                self.ready_queue.append([task_name, arrival_time, burst_time, priority, burst_time])
+                self.pending_tasks.remove(task)
 
-    def run_preemptive(self, current_time, current_process=None, remaining_time=0):
-        self.update_queues(current_time)
-        self.ready_queue = [p for p in self.ready_queue if p.remaining_time > 0] # ready_queue array contain all processes not finished
+    def run_preemptive(self, current_time=0):
+        current_task = None
 
-        if not self.ready_queue:
-            self.timeline.append("Idle")
-            self.time += 1
-            return None, 0, False #different return
+        while self.pending_tasks or self.ready_queue or current_task:
+            self.update_queues(current_time)
 
-        # Sort by priority (lower value means higher priority), then arrival time
-        self.ready_queue.sort(key=lambda p: (p.priority, p.arrival_time))
-        selected = self.ready_queue[0]
-        if selected.start_time is None:
-            selected.start_time = current_time
-        selected.remaining_time -= 1
-        self.timeline.append(selected.name)
-        self.time = current_time + 1
-        if selected.remaining_time == 0:
-            selected.completion_time = self.time
-            self.ready_queue.remove(selected)
-            self.completed.append(selected)
-        preempted = current_process is not None and current_process != selected
-        return selected, selected.remaining_time, preempted
-    
+            if current_task:
+                self.ready_queue.append(current_task)
+                current_task = None
+
+            if not self.ready_queue:
+                self.timeline.append("Idle")
+                current_time += 1
+                continue
+
+            # Sort ready queue by priority (lower number = higher priority)
+            self.ready_queue.sort(key=lambda x: x[3])
+            current_task = self.ready_queue.pop(0)
+
+            self.timeline.append(current_task[0])
+            current_task[2] -= 1  # Reduce remaining burst time
+
+            if current_task[2] == 0:
+                # Append task using original burst time (stored in index 4)
+                self.completed_tasks.append((current_task[0], current_task[1], current_task[4], current_task[3]))
+                current_task = None
+
+            current_time += 1
+
     def run_non_preemptive(self, current_time):
-        self.update_queues(current_time)
-        self.ready_queue = [p for p in self.ready_queue if p.remaining_time > 0]
+        for task in list(self.pending_tasks):
+            if task[1] <= current_time:
+                self.ready_queue.append(task)
+                self.pending_tasks.remove(task)
 
         if not self.ready_queue:
-            self.timeline.append("Idle")
-            self.time += 1
-            return
+            return None, 0
 
-        # Sort by priority (lower number = higher priority), then arrival time
-        self.ready_queue.sort(key=lambda p: (p.priority, p.arrival_time))
-        selected = self.ready_queue[0]
+        self.ready_queue.sort(key=lambda x: x[3])
+        selected_task = self.ready_queue.pop(0)
+        remaining_time = selected_task[2]
+        self.timeline.extend([selected_task[0]] * remaining_time)
+        self.completed_tasks.append(selected_task)
+        return selected_task, remaining_time
 
-        if selected.start_time is None:
-            selected.start_time = self.time
 
-        for _ in range(selected.remaining_time):
-            self.timeline.append(selected.name)
-            self.time += 1
+def print_summary(scheduler, mode="priority"):
+    print(f"\n=== Gantt Chart ({mode}) ===")
+    print(" -> ".join(scheduler.timeline))
 
-        selected.remaining_time = 0
-        selected.completion_time = self.time
-        self.ready_queue.remove(selected)
-        self.completed.append(selected)
+    task_times = {}  # {task_name: [start_time, completion_time]}
+    for time, task in enumerate(scheduler.timeline):
+        if task == "Idle":
+            continue
+        if task not in task_times:
+            task_times[task] = [time, time]
+        else:
+            task_times[task][1] = time
 
-    def is_done(self):
-        return len(self.waiting_queue) == 0 and len(self.ready_queue) == 0
+    total_waiting = 0
+    total_turnaround = 0
+
+    print(f"\n{'Process':<10} {'Arrival':<8} {'Burst':<6} {'Priority':<8} {'Start':<6} {'Completion':<10} {'Waiting':<8} {'Turnaround':<10}")
+    for name, arrival, burst, priority in sorted(scheduler.completed_tasks, key=lambda x: x[0]):
+        start = task_times[name][0]
+        completion = task_times[name][1] + 1  # +1 since last execution happens at that index
+        turnaround = completion - arrival
+        waiting = turnaround - burst
+        total_waiting += waiting
+        total_turnaround += turnaround
+
+        print(f"{name:<10} {arrival:<8} {burst:<6} {priority:<8} {start:<6} {completion:<10} {waiting:<8} {turnaround:<10}")
+
+    n = len(scheduler.completed_tasks)
+    if n > 0:
+        print(f"\nAverage Waiting Time   : {total_waiting / n:.2f}")
+        print(f"Average Turnaround Time: {total_turnaround / n:.2f}")
+
+
+# Example usage
+#tasks = [
+#    ("P1", 0, 7, 4),
+#    ("P2", 2, 4, 2),
+#    ("P3", 4, 1, 1),
+#    ("P4", 5, 4, 3),
+#]
+
+#scheduler = PriorityScheduler(tasks)
+#scheduler.run_preemptive(current_time=0)
+#print_summary(scheduler, mode="Preemptive Priority")
