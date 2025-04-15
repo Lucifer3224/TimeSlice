@@ -1,14 +1,21 @@
 
 class SJFScheduler:
-  
 
     def __init__(self, tasks):
         self.tasks = tasks
-        self.pending_tasks = [(task_name, arrival_time, burst_time) for task_name, arrival_time, burst_time in tasks]
+        self.pending_tasks = []
+        for task in tasks:
+            if len(task) == 4:
+                task_name, burst_time, arrival_time, _ = task
+            else:
+                task_name, burst_time, arrival_time = task
+            self.pending_tasks.append((task_name, arrival_time, burst_time))
+
         self.ready_queue = []
         self.completed_tasks = []
         self.timeline = []
-
+        #
+        self.waiting_queue = self.pending_tasks.copy()
 
     def update_queues(self, current_time):
         newly_arrived = []
@@ -20,10 +27,7 @@ class SJFScheduler:
                 newly_arrived.append(task)
         return newly_arrived
 
-
-
-
-        def run_non_preemptive(self, current_time):
+    def run_non_preemptive(self, current_time):
             for task in list(self.pending_tasks):
                 if task[1] <= current_time:
                     self.ready_queue.append(task)
@@ -38,42 +42,30 @@ class SJFScheduler:
 
             return selected_task, remaining_time
 
+    def run_preemptive(self, current_time, current_process=None, remaining_time=0, time_quantum=0):
+        self.update_queues(current_time)
 
+        if current_process:
+            self.ready_queue.append(current_process)
 
+        if not self.ready_queue:
+            self.timeline.append("Idle")
+            return None, 0, False  # Return 3 values
 
+        self.ready_queue.sort(key=lambda x: x[2])  # Sort by remaining time (burst time)
+        selected_task = self.ready_queue.pop(0)
+        selected_task = list(selected_task) + [selected_task[2]]  # add remaining time if not already
 
+        self.timeline.append(selected_task[0])
+        selected_task[3] -= 1  # remaining time - 1
 
-    def run_preemptive(self):
-        current_time = 0
-        current_task = None
-        remaining_time = 0
+        preempted = current_process is not None and current_process[0] != selected_task[0]
 
-        while self.pending_tasks or self.ready_queue or current_task:
-            self.update_queues(current_time)
-
-            if current_task:
-                self.ready_queue.append(current_task)
-
-            if not self.ready_queue:
-                self.timeline.append("Idle")
-                current_task = None
-                current_time += 1
-                continue
-
-            
-            self.ready_queue.sort(key=lambda x: x[3])
-            current_task = self.ready_queue.pop(0)
-
-            
-            self.timeline.append(current_task[0])
-            current_task[3] -= 1  # Decrement remaining 
-
-            if current_task[3] == 0:
-                self.completed_tasks.append((current_task[0], current_task[1], current_task[2]))
-                current_task = None
-           
-
-            current_time += 1
+        if selected_task[3] == 0:
+            self.completed_tasks.append((selected_task[0], selected_task[1], selected_task[2]))
+            return None, 0, preempted
+        else:
+            return selected_task, selected_task[3], preempted
 
     def is_done(self):
         """Check if scheduler has completed all processes."""

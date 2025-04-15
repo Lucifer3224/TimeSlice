@@ -308,11 +308,11 @@ class LiveSchedulerPage(tk.Frame):
     def update_queue_labels(self):
         """Refresh the Ready Queue and Waiting Queue label text."""
         if self.ready_queue:
-            ready_text = ", ".join(proc[0] for proc in self.ready_queue)
+            ready_text = ", ".join(proc.name if hasattr(proc, 'name') else proc[0] for proc in self.ready_queue)
         else:
             ready_text = "Empty"
         if self.waiting_queue:
-            waiting_text = ", ".join(proc[0] for proc in self.waiting_queue)
+            waiting_text = ", ".join(proc.name if hasattr(proc, 'name') else proc[0] for proc in self.waiting_queue)
         else:
             waiting_text = "Empty"
 
@@ -637,8 +637,7 @@ class LiveSchedulerPage(tk.Frame):
         time_quantum = 0  # For Round Robin
 
         while self.scheduling_active:
-            # Update the queues with newly arrived processes
-            newly_arrived = scheduler.update_queues(self.current_time)
+            newly_arrived = scheduler.update_queues(self.current_time) or []
 
             # Update UI display queues
             self.waiting_queue = scheduler.waiting_queue
@@ -647,7 +646,8 @@ class LiveSchedulerPage(tk.Frame):
 
             # Record "ready" state for newly arrived processes
             for proc in newly_arrived:
-                self.process_execution_history.append((proc[0], self.current_time, self.current_time, "ready"))
+                name = proc.name if hasattr(proc, 'name') else proc[0]
+                self.process_execution_history.append((name, self.current_time, self.current_time, "ready"))
 
             # Process selection based on scheduling algorithm
             if not self.current_process:
@@ -672,19 +672,35 @@ class LiveSchedulerPage(tk.Frame):
 
                 elif self.scheduler_type == "Round Robin":
                     process_info = scheduler.run(self.current_time)
-                    if process_info[0]:  # If a process was selected
+
+                    if process_info and process_info[0]:  # ✅ double check it's not None
                         self.current_process, remaining_time, time_quantum = process_info[0]
+                    else:
+                        self.current_process = None
+                        remaining_time = 0
 
                 # Start execution
                 if self.current_process:
-                    self.current_process_label.config(text=self.current_process[0])
-                    # Start "running" segment
-                    self.process_execution_history.append(
-                        (self.current_process[0], self.current_time,
-                         self.current_time + (
-                             time_quantum if self.scheduler_type == "Round Robin" and remaining_time > time_quantum else remaining_time),
-                         "running")
+                    name = self.current_process.name if hasattr(self.current_process, 'name') else self.current_process[
+                        0]
+                    self.current_process_label.config(text=name)
+
+                    # ✅ Ensure time_quantum is defined before use
+                    if self.scheduler_type == "Round Robin":
+                        try:
+                            time_quantum = int(self.time_quantum.get())
+                        except Exception:
+                            time_quantum = 2  # default fallback
+
+                    end_time = self.current_time + (
+                        time_quantum if self.scheduler_type == "Round Robin" and remaining_time > time_quantum else remaining_time
                     )
+
+                    self.process_execution_history.append(
+                        (name, self.current_time, end_time, "running")
+                    )
+                else:
+                    self.current_process_label.config(text="Idle")
 
             # Execute current process for one second
             if self.current_process:
@@ -711,7 +727,10 @@ class LiveSchedulerPage(tk.Frame):
                         self.update_execution_history_end_time(
                             self.process_execution_history[-1][0], self.current_time
                         )
-                        self.current_process_label.config(text=self.current_process[0])
+                        if self.current_process is not None:
+                            self.current_process_label.config(text=self.current_process[0])
+                        else:
+                            self.current_process_label.config(text="Idle")
                         # Start new "running" segment
                         self.process_execution_history.append(
                             (self.current_process[0], self.current_time, self.current_time + remaining_time, "running")
@@ -740,7 +759,7 @@ class LiveSchedulerPage(tk.Frame):
                         self.current_time, self.current_process, remaining_time, time_quantum
                     )
 
-                    if process_info[1]:  # If this is a new process
+                    if process_info and len(process_info) > 1 and process_info[1]:
                         # Update execution history end time
                         self.update_execution_history_end_time(self.current_process[0], self.current_time)
 
@@ -778,7 +797,8 @@ class LiveSchedulerPage(tk.Frame):
                 # Process completion check
                 if remaining_time <= 0 and not preempted:
                     # Update execution history end time
-                    self.update_execution_history_end_time(self.current_process[0], self.current_time)
+                    if self.current_process is not None:
+                        self.update_execution_history_end_time(self.current_process[0], self.current_time)
                     self.completed_processes.append(self.current_process)
                     self.current_process_label.config(text="None")
                     self.current_process = None
@@ -824,10 +844,13 @@ class LiveSchedulerPage(tk.Frame):
     def go_to_output(self):
         if self.navigate_to_output:
             # Pass the necessary data to the output page
-            self.navigate_to_output(
-                completed_processes=self.completed_processes,
-                process_execution_history=self.process_execution_history
-            )
+            cleaned_processes = [p for p in self.completed_processes if p is not None]
+            cleaned_processes = [
+                (p[0], p[1], p[2]) if len(p) >= 3 else p
+                for p in self.completed_processes
+                if isinstance(p, (tuple, list))
+            ]
+            self.navigate_to_output(cleaned_processes, self.process_execution_history)
 
     def confirm_exit(self):
         if messagebox.askyesno("Exit", "Are you sure you want to exit?"):
