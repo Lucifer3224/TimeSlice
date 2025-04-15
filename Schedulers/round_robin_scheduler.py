@@ -48,7 +48,7 @@ class RoundRobinScheduler:
         Initialize the Round Robin Scheduler
 
         Args:
-            processes: List of process objects (name, burst_time, arrival_time)
+            processes: List of process tuples (name, burst_time, arrival_time, time_quantum)
             default_quantum: Default time quantum if not specified in process
         """
         self.default_quantum = default_quantum
