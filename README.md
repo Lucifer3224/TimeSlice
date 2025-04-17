@@ -33,9 +33,23 @@ Built using **Tkinter**, **CustomTkinter**, and **Pillow**, this project provide
 ---
 
 TimeSlice/ 
-```
-<pre> ``` TimeSlice/ ├── GUI_Modules/ │ ├── splash_screen.py # App launcher and screen controller │ ├── home_screen.py # Welcome screen │ ├── scheduler_page.py # Algorithm selection and input form │ ├── live_scheduler_page.py # Simulation core logic and UI │ └── output.py # Final output: Gantt + stats │ ├── Schedulers/ │ ├── fcfs_scheduler.py │ ├── sjf_scheduler.py │ ├── priority_scheduler.py │ └── round_robin_scheduler.py │ ├── assets/ │ └── ChatGPT Logo.png # Optional splash image │ └── README.md # Project documentation ``` </pre>
-```
+
+<pre> ``` TimeSlice/
+  ├── GUI_Modules/ 
+  │   ├── splash_screen.py # App launcher and screen controller 
+  │   ├── home_screen.py # Welcome screen
+  │   ├── scheduler_page.py # Algorithm selection and input form
+  │   ├── live_scheduler_page.py # Simulation core logic and UI 
+  │   └── output.py # Final output: Gantt + stats 
+  │ ├── Schedulers/ 
+  │   ├── fcfs_scheduler.py 
+  │   ├── sjf_scheduler.py
+  │   ├── priority_scheduler.py 
+  │   └── round_robin_scheduler.py 
+  │   ├── assets/
+  │   └── ChatGPT Logo.png # Optional splash image
+  │   └── README.md # Project documentation ``` </pre>
+
 ### 🔧 Requirements
 
 - Python 3.10 or higher  
