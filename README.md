@@ -32,9 +32,9 @@ Built using **Tkinter**, **CustomTkinter**, and **Pillow**, this project provide
 
 ---
 
-TimeSlice/ 
+##TimeSlice/ 
 
-<pre> ``` TimeSlice/
+<pre>  
   ├── GUI_Modules/ 
   │   ├── splash_screen.py # App launcher and screen controller 
   │   ├── home_screen.py # Welcome screen
@@ -48,7 +48,7 @@ TimeSlice/
   │   └── round_robin_scheduler.py 
   │   ├── assets/
   │   └── ChatGPT Logo.png # Optional splash image
-  │   └── README.md # Project documentation ``` </pre>
+  │   └── README.md # Project documentation </pre>
 
 ### 🔧 Requirements
 
