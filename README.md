@@ -96,8 +96,6 @@ Metrics are automatically calculated for each process:
 ---
 
 # 👨‍💻 Author
-
-**Mohamed Hamed**  
 Faculty of Engineering – Ain Shams University  
 **Course:** Operating Systems  
 **Semester:** Spring 2025
