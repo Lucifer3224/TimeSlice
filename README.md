@@ -32,16 +32,16 @@ Built using **Tkinter**, **CustomTkinter**, and **Pillow**, this project provide
 
 ---
 
-##TimeSlice/ 
+## TimeSlice
 
 <pre>  
-  ├── GUI_Modules/ 
+  | ├── GUI_Modules
   │   ├── splash_screen.py # App launcher and screen controller 
   │   ├── home_screen.py # Welcome screen
   │   ├── scheduler_page.py # Algorithm selection and input form
   │   ├── live_scheduler_page.py # Simulation core logic and UI 
   │   └── output.py # Final output: Gantt + stats 
-  │ ├── Schedulers/ 
+  │ ├── Schedulers
   │   ├── fcfs_scheduler.py 
   │   ├── sjf_scheduler.py
   │   ├── priority_scheduler.py 
