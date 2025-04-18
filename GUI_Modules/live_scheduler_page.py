@@ -23,8 +23,9 @@ class LiveSchedulerPage(tk.Frame):
         self.height = height
         self.scheduler_type = scheduler_type
 
-        # ✅ Safely copy the list
-        self.process_list = process_list.copy() if isinstance(process_list, list) else []
+        # ✅ Safely copy the list and save as original_process_list
+        self.original_process_list = process_list.copy() if isinstance(process_list, list) else []
+        self.process_list = self.original_process_list.copy()  # Working copy
 
         # Scheduler state
         self.scheduling_active = False
@@ -110,34 +111,12 @@ class LiveSchedulerPage(tk.Frame):
             self.priority_value.insert(0, "0")
             row += 1
 
-            # Add preemptive option
-            self.preemptive_var = tk.BooleanVar(value=False)
-            self.preemptive_frame = tk.Frame(process_frame, bg=colors['background'])
-            self.preemptive_frame.grid(row=row, column=0, columnspan=2, sticky='w', padx=5, pady=5)
-            tk.Checkbutton(self.preemptive_frame, text="Preemptive", variable=self.preemptive_var,
-                           bg=colors['background'], fg=colors['text']).pack(side=tk.LEFT)
-            row += 1
-
-        elif self.scheduler_type == "SJF":
-            # Add preemptive option
-            self.preemptive_var = tk.BooleanVar(value=False)
-            self.preemptive_frame = tk.Frame(process_frame, bg=colors['background'])
-            self.preemptive_frame.grid(row=row, column=0, columnspan=2, sticky='w', padx=5, pady=5)
-            tk.Checkbutton(self.preemptive_frame, text="Preemptive", variable=self.preemptive_var,
-                           bg=colors['background'], fg=colors['text']).pack(side=tk.LEFT)
-            row += 1
-
         elif self.scheduler_type == "Round Robin":
-            self.quantum_frame = tk.Frame(process_frame, bg=colors['background'])
-            self.quantum_frame.grid(row=row, column=0, columnspan=2, sticky='w', padx=5, pady=5)
-            tk.Label(self.quantum_frame, text="Time Quantum:",
-                     bg=colors['background'], fg=colors['text']
-                     ).pack(side=tk.LEFT)
+            pass  # No specific input needed here anymore for RR
 
-            self.time_quantum = tk.Entry(self.quantum_frame, width=10, font=("Arial", 12))
-            self.time_quantum.pack(side=tk.LEFT, padx=5)
-            self.time_quantum.insert(0, "2")
-            row += 1
+        # Remove the primitive/non-primitive check button and enforce consistent process types.
+        if self.scheduler_type in ["SJF", "Priority"]:
+            self.preemptive_var = tk.BooleanVar(value=self.process_list[0][3] if self.process_list else False)
 
         add_button = tk.Button(
             process_frame, text="Add Process",
@@ -281,6 +260,7 @@ class LiveSchedulerPage(tk.Frame):
             self.populate_from_passed_processes(self.process_list)
 
     def populate_from_passed_processes(self, process_list):
+        self.process_list = process_list.copy() if isinstance(process_list, list) else []
         for process in self.process_list:
             if self.scheduler_type == "FCFS":
                 name, burst, arrival = process
@@ -387,72 +367,117 @@ class LiveSchedulerPage(tk.Frame):
             self.process_listbox.delete(index)
             self.update_gantt_chart()
 
+    # Fix crash when adding a process while scheduling and ensure correct arrival time when paused.
     def add_process(self):
+        # Validate process name
         name = self.process_name.get().strip()
-        duration_text = self.process_duration.get().strip()
         if not name:
             name = f"Process {len(self.process_list) + 1}"
+        
+        # Validate burst time - must be positive integer
+        duration_text = self.process_duration.get().strip()
         try:
+            # Check if it's a valid integer
+            if not duration_text.isdigit():
+                raise ValueError("Burst time must be a positive integer")
+            
             duration = int(duration_text)
             if duration <= 0:
-                raise ValueError("Duration must be positive")
-        except ValueError:
-            messagebox.showerror("Invalid Input", "Please enter a valid positive number for burst time")
+                raise ValueError("Burst time must be positive")
+        except ValueError as e:
+            messagebox.showerror("Invalid Input", str(e))
             return
 
+        # Set arrival time based on current state
         if self.scheduling_active:
             arrival_time = self.current_time
         else:
             try:
-                arrival_time = int(self.arrival_time.get().strip())
+                arrival_text = self.arrival_time.get().strip()
+                # Check if it's a valid non-negative integer
+                if not arrival_text.isdigit() and arrival_text != '0':
+                    raise ValueError("Arrival time must be a non-negative integer")
+                
+                arrival_time = int(arrival_text)
                 if arrival_time < 0:
-                    raise ValueError("Arrival time must be non-negative")
-            except ValueError:
-                messagebox.showerror("Invalid Input", "Please enter a valid non-negative number for arrival time")
+                    raise ValueError("Arrival time cannot be negative")
+            except ValueError as e:
+                messagebox.showerror("Invalid Input", str(e))
                 return
 
         # Create process tuple based on scheduler type
         if self.scheduler_type == "FCFS":
             process = (name, duration, arrival_time)
         elif self.scheduler_type == "SJF":
-            preemptive = getattr(self, 'preemptive_var', tk.BooleanVar()).get()
+            # Use the preemptive value from existing processes for consistency
+            preemptive = False
+            if self.process_list and len(self.process_list[0]) > 3:
+                preemptive = self.process_list[0][3]
             process = (name, duration, arrival_time, preemptive)
         elif self.scheduler_type == "Priority":
             try:
-                priority = int(self.priority_value.get().strip())
-            except ValueError:
-                messagebox.showerror("Invalid Input", "Please enter a valid number for priority")
+                priority_text = self.priority_value.get().strip()
+                # Check if it's a valid integer (can be negative for priority)
+                if not priority_text.isdigit() and not (priority_text.startswith('-') and priority_text[1:].isdigit()):
+                    raise ValueError("Priority must be an integer")
+                
+                priority = int(priority_text)
+            except ValueError as e:
+                messagebox.showerror("Invalid Input", str(e))
                 return
-            preemptive = getattr(self, 'preemptive_var', tk.BooleanVar()).get()
+            
+            # Use the preemptive value from existing processes for consistency
+            preemptive = False
+            if self.process_list and len(self.process_list[0]) > 4:
+                preemptive = self.process_list[0][4]
             process = (name, duration, arrival_time, priority, preemptive)
         elif self.scheduler_type == "Round Robin":
-            try:
-                quantum = int(self.time_quantum.get().strip())
-                if quantum <= 0:
-                    raise ValueError("Time quantum must be positive")
-            except ValueError:
-                messagebox.showerror("Invalid Input", "Please enter a valid positive number for time quantum")
-                return
-            process = (name, duration, arrival_time, quantum)
+            # Determine the quantum to use automatically from original processes
+            default_quantum = 2  # Default value if no original processes exist
+            quantum_to_use = default_quantum
+
+            # Try to get the quantum from the original processes
+            if self.original_process_list:
+                try:
+                    # Assuming the 4th element (index 3) is the quantum for RR
+                    if len(self.original_process_list[0]) > 3:
+                        original_quantum = int(self.original_process_list[0][3])
+                        # Validate fetched quantum is positive
+                        if original_quantum > 0:
+                            quantum_to_use = original_quantum
+                        else:
+                            print(f"Warning: Original quantum ({original_quantum}) is not positive. Using default {default_quantum}.")
+                    else:
+                        print(f"Warning: Original process tuple for RR doesn't have quantum info. Using default {default_quantum}.")
+                except (IndexError, ValueError, TypeError) as e:
+                    print(f"Error retrieving original quantum: {e}. Using default {default_quantum}.")
+
+            # Create the process tuple with the determined quantum
+            process = (name, duration, arrival_time, quantum_to_use)
         else:
             process = (name, duration, arrival_time)
 
+        # Add to process_list
         self.process_list.append(process)
+        
+        # Update process_details dictionary so progress bar works for the new process
+        if hasattr(self, 'process_details'):
+            self.process_details[name] = {"burst": duration, "arrival": arrival_time}
 
         # Format the display in the listbox differently based on scheduler type
         if self.scheduler_type == "FCFS":
             display_text = f"{name} (Burst: {duration}s, Arrival: {arrival_time}s)"
         elif self.scheduler_type == "SJF":
-            preemptive = getattr(self, 'preemptive_var', tk.BooleanVar()).get()
+            preemptive = process[3]  # Use the value from the process tuple
             preemptive_text = "Preemptive" if preemptive else "Non-Preemptive"
             display_text = f"{name} (Burst: {duration}s, Arrival: {arrival_time}s, {preemptive_text})"
         elif self.scheduler_type == "Priority":
-            priority = int(self.priority_value.get().strip())
-            preemptive = getattr(self, 'preemptive_var', tk.BooleanVar()).get()
+            priority = process[3]  # Use the value from the process tuple
+            preemptive = process[4]  # Use the value from the process tuple
             preemptive_text = "Preemptive" if preemptive else "Non-Preemptive"
             display_text = f"{name} (Burst: {duration}s, Arrival: {arrival_time}s, Priority: {priority}, {preemptive_text})"
         elif self.scheduler_type == "Round Robin":
-            quantum = int(self.time_quantum.get().strip())
+            quantum = process[3]  # Use the value from the process tuple
             display_text = f"{name} (Burst: {duration}s, Arrival: {arrival_time}s, Quantum: {quantum}s)"
         else:
             display_text = f"{name} (Burst: {duration}s, Arrival: {arrival_time}s)"
@@ -469,9 +494,6 @@ class LiveSchedulerPage(tk.Frame):
         if self.scheduler_type == "Priority" and hasattr(self, 'priority_value'):
             self.priority_value.delete(0, tk.END)
             self.priority_value.insert(0, "0")
-        elif self.scheduler_type == "Round Robin" and hasattr(self, 'time_quantum'):
-            self.time_quantum.delete(0, tk.END)
-            self.time_quantum.insert(0, "2")
 
         self.update_gantt_chart()
 
@@ -479,12 +501,32 @@ class LiveSchedulerPage(tk.Frame):
             self.restart_scheduler()
 
     def restart_scheduler(self):
+        """Safely restart the scheduler after adding a new process during runtime."""
         self.restarting = True
+        
+        # Set flag to stop the current scheduler thread
         self.scheduling_active = False
+        
+        # Wait for scheduler thread to terminate safely
         if self.scheduler_thread and self.scheduler_thread.is_alive():
-            self.scheduler_thread.join(0.1)
+            try:
+                self.scheduler_thread.join(0.5)  # Increased timeout for safe termination
+            except Exception as e:
+                print(f"Thread join error: {e}")
+                # Continue anyway - we'll create a new thread
+                
+        # Keep current time and execution history
+        # But reset other states that might be inconsistent
+        if hasattr(self, 'ready_queue'):
+            self.ready_queue = []
+        if hasattr(self, 'waiting_queue'):
+            self.waiting_queue = []
+            
+        # Set flags to start a new scheduler
         self.restarting = False
         self.scheduling_active = True
+        
+        # Start a new scheduler thread
         self.scheduler_thread = threading.Thread(target=self.run_scheduler)
         self.scheduler_thread.daemon = True
         self.scheduler_thread.start()
@@ -543,12 +585,6 @@ class LiveSchedulerPage(tk.Frame):
                     margin - 5, y + bar_height / 2,
                     text=name, anchor="e", font=("Arial", 10)
                 )
-                # Just draw a thin line to indicate the timeline
-                # self.canvas.create_line(
-                #   margin, y + bar_height / 2,
-                #          canvas_width - 20, y + bar_height / 2,
-                # dash=(2, 4), fill="#CCCCCC"
-                # )
         else:
             # Group segments by process
             process_timelines = {}
@@ -616,186 +652,216 @@ class LiveSchedulerPage(tk.Frame):
             self.current_time = 0
             self.process_execution_history = []
             self.completed_processes = []
+            # Ensure original process list is used for lookups if needed
+            self.process_details = {p[0]: {"burst": p[1], "arrival": p[2]} for p in self.original_process_list}
 
-        # Initialize the appropriate scheduler based on the scheduler type
+
+        # Initialize the appropriate scheduler
+        # Pass a copy of the original list of tuples
+        scheduler_process_list = self.process_list.copy()
         if self.scheduler_type == "FCFS":
-            scheduler = FCFSScheduler(self.process_list)
+            scheduler = FCFSScheduler(scheduler_process_list)
         elif self.scheduler_type == "SJF":
-            scheduler = SJFScheduler(self.process_list)
+            scheduler = SJFScheduler(scheduler_process_list)
         elif self.scheduler_type == "Priority":
-            scheduler = PriorityScheduler(self.process_list)
+            scheduler = PriorityScheduler(scheduler_process_list)
         elif self.scheduler_type == "Round Robin":
-            scheduler = RoundRobinScheduler(self.process_list)
+            # Initialize RR scheduler using the determined quantum from the first original process if available
+            default_quantum = 2
+            quantum_to_use = default_quantum
+            if self.original_process_list:
+                try:
+                    if len(self.original_process_list[0]) > 3:
+                        original_quantum = int(self.original_process_list[0][3])
+                        if original_quantum > 0:
+                            quantum_to_use = original_quantum
+                except (IndexError, ValueError, TypeError):
+                    pass  # Use default if error
+
+            scheduler = RoundRobinScheduler(scheduler_process_list, quantum_to_use)
         else:
-            # Default to FCFS
-            scheduler = FCFSScheduler(self.process_list)
+            scheduler = FCFSScheduler(scheduler_process_list)
 
         self.ready_queue = []  # For UI display only
-        self.waiting_queue = []  # For UI display only
-        self.current_process = None
-        remaining_time = 0
-        time_quantum = 0  # For Round Robin
+        self.waiting_queue = [] # For UI display only
+        self.current_process = None # Tuple of the currently running process
+        remaining_time = 0      # Remaining time for self.current_process
+        time_quantum_left = 0 # For Round Robin
+
+        last_process_name = None # Track changes for history update
 
         while self.scheduling_active:
-            # Update the queues with newly arrived processes
+            # 1. Update queues based on current_time (move arrived to ready)
             newly_arrived = scheduler.update_queues(self.current_time)
-
-            # Update UI display queues
-            self.waiting_queue = scheduler.waiting_queue
-            self.ready_queue = scheduler.ready_queue
+            self.waiting_queue = scheduler.waiting_queue # Update UI state
+            self.ready_queue = scheduler.ready_queue   # Update UI state
             self.update_queue_labels()
 
-            # Record "ready" state for newly arrived processes
-            for proc in newly_arrived:
-                self.process_execution_history.append((proc[0], self.current_time, self.current_time, "ready"))
+            # 2. Determine scheduling mode (preemptive or non-preemptive)
+            #    This relies on the assumption that all processes have the same flag.
+            #    A more robust design might set this based on initial UI selection.
+            preemptive_mode = False
+            if self.scheduler_type == "SJF" and self.process_list:
+                if len(self.process_list[0]) > 3:
+                    preemptive_mode = self.process_list[0][3]
+            elif self.scheduler_type == "Priority" and self.process_list:
+                 if len(self.process_list[0]) > 4:
+                     # Assuming PriorityScheduler also uses the last element for preemptive flag
+                     preemptive_mode = self.process_list[0][4]
 
-            # Process selection based on scheduling algorithm
-            if not self.current_process:
-                if self.scheduler_type == "FCFS":
-                    self.current_process, remaining_time = scheduler.run(self.current_time)
+            # 3. Decide which process should run NOW based on mode
+            process_to_run = None
+            time_for_process = 0 # This is the REMAINING time for the selected process
+            preempted_flag = False # Tracks if preemption occurred *this tick*
 
-                elif self.scheduler_type == "SJF":
-                    # Check if we're using preemptive SJF
-                    is_preemptive = len(self.process_list[0]) > 3 and self.process_list[0][3]
-                    if is_preemptive:
-                        self.current_process, remaining_time, _ = scheduler.run_preemptive(self.current_time)
-                    else:
-                        self.current_process, remaining_time = scheduler.run_non_preemptive(self.current_time)
-
-                elif self.scheduler_type == "Priority":
-                    # Check if we're using preemptive Priority
-                    is_preemptive = len(self.process_list[0]) > 4 and self.process_list[0][4]
-                    if is_preemptive:
-                        self.current_process, remaining_time, _ = scheduler.run_preemptive(self.current_time)
-                    else:
-                        self.current_process, remaining_time = scheduler.run_non_preemptive(self.current_time)
-
-                elif self.scheduler_type == "Round Robin":
-                    process_info = scheduler.run(self.current_time)
-                    if process_info[0]:  # If a process was selected
-                        self.current_process, remaining_time, time_quantum = process_info[0]
-
-                # Start execution
-                if self.current_process:
-                    self.current_process_label.config(text=self.current_process[0])
-                    # Start "running" segment
-                    self.process_execution_history.append(
-                        (self.current_process[0], self.current_time,
-                         self.current_time + (
-                             time_quantum if self.scheduler_type == "Round Robin" and remaining_time > time_quantum else remaining_time),
-                         "running")
+            if preemptive_mode:
+                # Call preemptive logic (SRTF for SJF, Preemptive Priority)
+                # Assumes scheduler has a 'run_preemptive' method if mode is preemptive
+                if hasattr(scheduler, 'run_preemptive'):
+                    process_to_run, time_for_process, preempted_flag = scheduler.run_preemptive(
+                        self.current_time, self.current_process, remaining_time
                     )
+                else:
+                    # Fallback or error if preemptive mode selected but method missing
+                    print(f"Warning: Preemptive mode selected for {self.scheduler_type}, but run_preemptive not found.")
+                    # Defaulting to non-preemptive behavior for this tick
+                    if not self.current_process:
+                         if hasattr(scheduler, 'run_non_preemptive'):
+                              process_to_run, time_for_process = scheduler.run_non_preemptive(self.current_time)
+                         elif self.scheduler_type == "FCFS": # FCFS only has run()
+                              process_to_run, time_for_process = scheduler.run(self.current_time)
+                    else:
+                         process_to_run = self.current_process
+                         time_for_process = remaining_time
 
-            # Execute current process for one second
+            elif self.scheduler_type == "Round Robin":
+                 # RR logic needs current process, remaining time, and quantum slice
+                 process_to_run, time_for_process, time_quantum_left, preempted_flag = scheduler.run(
+                     self.current_time, self.current_process, remaining_time, time_quantum_left
+                 )
+
+            else: # Non-preemptive modes (FCFS, non-preemptive SJF/Priority)
+                if not self.current_process: # Only select new if CPU is idle
+                    if self.scheduler_type == "FCFS":
+                         process_to_run, time_for_process = scheduler.run(self.current_time)
+                    elif self.scheduler_type in ["SJF", "Priority"]:
+                         # Ensure non-preemptive method exists
+                         if hasattr(scheduler, 'run_non_preemptive'):
+                              process_to_run, time_for_process = scheduler.run_non_preemptive(self.current_time)
+                         else:
+                              print(f"Warning: Non-preemptive method missing for {self.scheduler_type}")
+                              process_to_run = None
+                              time_for_process = 0
+                else:
+                    # Non-preemptive: current process continues until done
+                    process_to_run = self.current_process
+                    time_for_process = remaining_time # Continue with the current remaining time
+
+            # --- State Update based on Decision ---
+            current_process_name = process_to_run[0] if process_to_run else None
+
+            # If the running process changed (or started/stopped)
+            if current_process_name != last_process_name:
+                # If a process was running previously, update its history end time
+                if last_process_name and self.process_execution_history:
+                    self.update_execution_history_end_time(last_process_name, self.current_time)
+
+                # If a new process is starting/resuming
+                if process_to_run:
+                    self.current_process = process_to_run
+                    # CRITICAL: Use the remaining time returned by the scheduler
+                    remaining_time = time_for_process
+                    self.current_process_label.config(text=current_process_name)
+                    # Add new segment to history
+                    # Estimate end time for now, will be updated if preempted or finished
+                    estimated_end = self.current_time + remaining_time
+                    self.process_execution_history.append(
+                        (current_process_name, self.current_time, estimated_end, "running")
+                    )
+                else:
+                    # No process is running now (idle or finished)
+                    self.current_process = None
+                    remaining_time = 0
+                    self.current_process_label.config(text="None")
+                    self.progress_var.set(0)
+
+                last_process_name = current_process_name
+            # No need for 'elif process_to_run:' here, as remaining_time is handled
+            # when the process is selected/continues.
+
+            # --- Execute for one time unit --- 
             if self.current_process:
-                time.sleep(1)
+                # Check if still active before sleeping/advancing time
+                if not self.scheduling_active: break
+                time.sleep(0.5) # Reduced sleep for faster simulation
+
+                # Advance time and decrement remaining time *for the current process*
                 self.current_time += 1
                 remaining_time -= 1
-
-                if self.scheduler_type == "Round Robin" and time_quantum > 0:
-                    time_quantum -= 1
+                if self.scheduler_type == "Round Robin":
+                    time_quantum_left -= 1
 
                 self.time_label.config(text=f"{self.current_time}s")
-
-                # Preemption checks for SJF and Priority
-                preempted = False
-
-                # Check for preemption based on scheduler type
-                if self.scheduler_type == "SJF" and len(self.current_process) > 3 and self.current_process[3]:
-                    self.current_process, remaining_time, preempted = scheduler.run_preemptive(
-                        self.current_time, self.current_process, remaining_time
-                    )
-
-                    if preempted:
-                        # Update execution history end time
-                        self.update_execution_history_end_time(
-                            self.process_execution_history[-1][0], self.current_time
-                        )
-                        self.current_process_label.config(text=self.current_process[0])
-                        # Start new "running" segment
-                        self.process_execution_history.append(
-                            (self.current_process[0], self.current_time, self.current_time + remaining_time, "running")
-                        )
-
-                # Preemptive Priority check
-                elif self.scheduler_type == "Priority" and len(self.current_process) > 4 and self.current_process[4]:
-                    self.current_process, remaining_time, preempted = scheduler.run_preemptive(
-                        self.current_time, self.current_process, remaining_time
-                    )
-
-                    if preempted:
-                        # Update execution history end time
-                        self.update_execution_history_end_time(
-                            self.process_execution_history[-1][0], self.current_time
-                        )
-                        self.current_process_label.config(text=self.current_process[0])
-                        # Start new "running" segment
-                        self.process_execution_history.append(
-                            (self.current_process[0], self.current_time, self.current_time + remaining_time, "running")
-                        )
-
-                # Round Robin: Time quantum expired
-                elif self.scheduler_type == "Round Robin" and time_quantum == 0 and remaining_time > 0:
-                    process_info = scheduler.run(
-                        self.current_time, self.current_process, remaining_time, time_quantum
-                    )
-
-                    if process_info[1]:  # If this is a new process
-                        # Update execution history end time
-                        self.update_execution_history_end_time(self.current_process[0], self.current_time)
-
-                        # Get the selected process info
-                        self.current_process, remaining_time, time_quantum = process_info[0]
-
-                        if self.current_process:
-                            self.current_process_label.config(text=self.current_process[0])
-                            # Start new "running" segment  
-                            self.process_execution_history.append(
-                                (self.current_process[0], self.current_time,
-                                 self.current_time + (
-                                     time_quantum if remaining_time > time_quantum else remaining_time),
-                                 "running")
-                            )
-                        else:
-                            self.current_process_label.config(text="None")
 
                 # Update progress bar
-                if not preempted:
-                    if remaining_time > 0:
-                        if self.scheduler_type == "Round Robin":
-                            original_quantum = time_quantum + 1 if time_quantum > 0 else 2  # Estimate original quantum
-                            progress = original_quantum - time_quantum
-                            self.progress_var.set((progress / original_quantum) * 100)
-                        else:
-                            total = self.current_process[1]  # Original burst time
-                            progress = total - remaining_time
-                            self.progress_var.set((progress / total) * 100)
-                    else:
-                        self.progress_var.set(100)
+                original_burst = self.process_details.get(self.current_process[0], {}).get("burst", 0)
+                if original_burst > 0:
+                    # Calculate progress based on how much time is left
+                    progress_done = original_burst - remaining_time
+                    self.progress_var.set((progress_done / original_burst) * 100)
+                else:
+                    self.progress_var.set(0)
 
-                self.update_gantt_chart()
-
-                # Process completion check
-                if remaining_time <= 0 and not preempted:
-                    # Update execution history end time
+                # Check for completion AFTER executing and decrementing
+                if remaining_time <= 0:
                     self.update_execution_history_end_time(self.current_process[0], self.current_time)
-                    self.completed_processes.append(self.current_process)
-                    self.current_process_label.config(text="None")
+                    # Find the completed process tuple to add (using original details)
+                    completed_tuple = next((p for p in self.original_process_list if p[0] == self.current_process[0]), None)
+                    # If the process is not in the original list, it must be a newly added process, so use the current process
+                    if not completed_tuple:
+                        completed_tuple = self.current_process
+                    
+                    # Add to completed processes
+                    if completed_tuple:
+                        self.completed_processes.append(completed_tuple)
+
+                    # Mark as finished for the next loop iteration's decision phase
                     self.current_process = None
+                    remaining_time = 0
+                    last_process_name = None # Reset last process tracker
+                    self.current_process_label.config(text="None")
+                    self.progress_var.set(100) # Show 100% briefly
+
             else:
-                # No process running => idle
-                time.sleep(1)
-                self.current_time += 1
-                self.time_label.config(text=f"{self.current_time}s")
-                self.update_gantt_chart()
+                # No process running => idle tick
+                # Only advance time if there are still processes waiting or ready
+                if not scheduler.is_done():
+                     # Check if still active before sleeping/advancing time
+                    if not self.scheduling_active: break
+                    time.sleep(0.5) # Reduced sleep
+                    self.current_time += 1
+                    self.time_label.config(text=f"{self.current_time}s")
+                else:
+                    # If scheduler is done and no process running, break immediately
+                    if not self.current_process:
+                         break
 
-            # Check if we're done scheduling
+            # Update Gantt chart (always update to show time marker)
+            # Ensure GUI updates happen on the main thread if needed (Tkinter is usually main thread only)
+            # self.after(0, self.update_gantt_chart) # Example if needed
+            self.update_gantt_chart()
+
+            # Check for overall completion
+            # Need to check is_done() AND if a process is still running its last tick
             if scheduler.is_done() and not self.current_process:
-                break
+                break # Exit the loop
 
+        # --- End of Loop --- 
         self.scheduling_active = False
         self.play_button.config(text="Start Scheduling")
         self.output_button.config(state=tk.NORMAL)
+        # Final Gantt chart update to ensure completion is shown
+        self.update_gantt_chart()
 
     def update_execution_history_end_time(self, process_name, end_time):
         """Update the end time of the most recent execution segment for a process"""
@@ -808,7 +874,7 @@ class LiveSchedulerPage(tk.Frame):
     def reset_scheduler(self):
         self.scheduling_active = False
         self.current_time = 0
-        self.process_list.clear()
+        self.process_list = self.original_process_list.copy()  # Restore from original
         self.process_listbox.delete(0, tk.END)
         self.ready_queue.clear()
         self.waiting_queue.clear()
@@ -819,18 +885,29 @@ class LiveSchedulerPage(tk.Frame):
         self.progress_var.set(0)
         self.canvas.delete("all")
         self.output_button.config(state=tk.DISABLED)
-        self.add_sample_processes()
+        
+        # Populate listbox with original processes instead of adding sample processes
+        if self.original_process_list:
+            self.populate_from_passed_processes(self.original_process_list)
+        else:
+            # Only add sample processes if no original processes were provided
+            self.add_sample_processes()
 
     def go_to_output(self):
         if self.navigate_to_output:
-            # Pass the necessary data to the output page
+            # Pass the necessary data to the output page, including the current process list
             self.navigate_to_output(
                 completed_processes=self.completed_processes,
-                process_execution_history=self.process_execution_history
+                process_execution_history=self.process_execution_history,
+                process_list=self.process_list.copy(),  # Pass current process list
+                scheduler_type=self.scheduler_type
             )
 
     def confirm_exit(self):
         if messagebox.askyesno("Exit", "Are you sure you want to exit?"):
             self.scheduling_active = False
-            if self.navigate_home:
-                self.navigate_home()
+            if hasattr(self, 'navigate_to_scheduler') and self.navigate_to_scheduler:
+                self.navigate_to_scheduler(self.process_list, self.scheduler_type)
+            else:
+                if self.navigate_home:
+                    self.navigate_home()

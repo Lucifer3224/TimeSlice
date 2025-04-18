@@ -75,29 +75,35 @@ class SplashScreenApp:
 
     def get_theme_colors(self):
         """Get color scheme based on current theme"""
+        # Gold from logo
+        self.logo_gold = "#CDA457"
+        # Cream color for text
+        self.light_cream = "#F5EFE0"
+        
         if self.dark_mode:
             return {
-                'background': '#121212',
-                'text': '#FFFFFF',
-                'text_secondary': '#BBBBBB',
-                'button_bg': self.logo_blue,
-                'button_fg': '#FFFFFF',
-                'sign_out_bg': '#CF6679',
-                'sign_out_fg': '#FFFFFF',
-                'toggle_bg': '#03DAC6',
-                'toggle_fg': '#000000'
+                'background': '#0A0A0A',          # Near black
+                'text': self.light_cream,         # Light cream text
+                'text_secondary': '#BDB19F',      # Lighter gold/cream
+                'button_bg': self.logo_gold,      # Gold buttons
+                'button_fg': '#000000',           # Black text on gold buttons
+                'sign_out_bg': '#A03333',         # Darker red
+                'sign_out_fg': self.light_cream,  # Light text on red
+                'toggle_bg': '#8A7439',           # Darker gold
+                'toggle_fg': self.light_cream     # Light text
             }
         else:
+            # Light theme (though you might want to make dark the default)
             return {
-                'background': self.logo_bg_color,
-                'text': self.logo_dark,
-                'text_secondary': '#555555',
-                'button_bg': self.logo_blue,
-                'button_fg': '#FFFFFF',
-                'sign_out_bg': '#B00020',
-                'sign_out_fg': '#FFFFFF',
-                'toggle_bg': '#00BCD4',
-                'toggle_fg': '#000000'
+                'background': '#0A0A0A',          # Still dark for light theme
+                'text': self.logo_gold,           # Gold text
+                'text_secondary': '#BDB19F',      # Light gold
+                'button_bg': self.logo_gold,      # Gold buttons
+                'button_fg': '#000000',           # Black text on buttons
+                'sign_out_bg': '#A03333',         # Dark red
+                'sign_out_fg': self.light_cream,  # Light text
+                'toggle_bg': '#8A7439',           # Darker gold
+                'toggle_fg': self.light_cream     # Light text
             }
 
     def show_home_screen(self):
@@ -163,21 +169,25 @@ class SplashScreenApp:
         self.slide_transition(self.screens[self.current_screen], live_scheduler_page, direction="left")
         self.current_screen = self.screens.index(live_scheduler_page)
 
-    def show_output_page(self, completed_processes=None, process_execution_history=None):
+    def show_output_page(self, completed_processes=None, process_execution_history=None, process_list=None, scheduler_type=None):
         """Show the Output Page with scheduling results"""
         output_page = None
 
-        # Get the scheduler type from the current live scheduler page
-        scheduler_type = "FCFS"  # Default
-        if 'live_scheduler' in self.page_screens:
-            scheduler_type = self.page_screens['live_scheduler'].scheduler_type
+        # Get the scheduler type from the current live scheduler page if not provided
+        if scheduler_type is None:
+            scheduler_type = "FCFS"  # Default
+            if 'live_scheduler' in self.page_screens:
+                scheduler_type = self.page_screens['live_scheduler'].scheduler_type
+
+        # Use the passed process_list if provided, else fallback to self.process_list
+        current_process_list = process_list if process_list is not None else self.process_list
 
         if 'output_page' in self.page_screens:
             # Replace existing page
             output_page = OutputPage(
                 self.root, self.colors, self.window_width, self.window_height,
                 self.show_home_screen,
-                lambda: self.show_live_scheduler_page(self.process_list, scheduler_type),
+                lambda: self.show_live_scheduler_page(current_process_list, scheduler_type),
                 completed_processes, process_execution_history, scheduler_type
             )
             self.screens[self.screens.index(self.page_screens['output_page'])] = output_page
@@ -186,7 +196,7 @@ class SplashScreenApp:
             output_page = OutputPage(
                 self.root, self.colors, self.window_width, self.window_height,
                 self.show_home_screen,
-                lambda: self.show_live_scheduler_page(self.process_list, scheduler_type),
+                lambda: self.show_live_scheduler_page(current_process_list, scheduler_type),
                 completed_processes, process_execution_history, scheduler_type
             )
             self.screens.append(output_page)
@@ -194,7 +204,6 @@ class SplashScreenApp:
 
         self.slide_transition(self.screens[self.current_screen], output_page, direction="left")
         self.current_screen = self.screens.index(output_page)
-
 
     def toggle_theme(self):
         """Switch between dark and light mode"""
@@ -231,33 +240,36 @@ class SplashScreenApp:
 
     def create_logo_screen(self):
         """Create the first screen with company logo"""
-        logo_frame = tk.Frame(self.root, bg=self.colors['background'])
+        logo_frame = tk.Frame(self.root, bg="#000000")
         logo_frame.place(x=0, y=0, width=self.window_width, height=self.window_height)
-        logo_container = tk.Frame(logo_frame, bg=self.colors['background'])
+        logo_container = tk.Frame(logo_frame, bg="#000000")
         logo_container.place(relx=0.5, rely=0.5, anchor='center')
+        
         try:
-            logo_img = Image.open('ChatGPT Image Mar 30, 2025, 08_27_34 AM.png')
-            width, height = logo_img.size
-            center_x, center_y = width // 2, height // 2
-            crop_radius = min(width, height) // 2.5
-            logo_img = logo_img.crop(
-                (center_x - crop_radius, center_y - crop_radius - 40, center_x + crop_radius, center_y + crop_radius))
-            logo_size = 300
-            logo_img = logo_img.resize((logo_size, logo_size), Image.LANCZOS)
+            # Load the logo image without cropping
+            logo_img = Image.open('logo.png')  # Make sure this is the correct path to your logo
+            
+            # Calculate the proper size while maintaining aspect ratio
+            logo_width = min(self.window_width * 0.7, logo_img.width)
+            ratio = logo_width / logo_img.width
+            logo_height = logo_img.height * ratio
+            
+            # Resize while maintaining aspect ratio
+            logo_img = logo_img.resize((int(logo_width), int(logo_height)), Image.LANCZOS)
             logo_photo = ImageTk.PhotoImage(logo_img)
-            logo_label = tk.Label(logo_container, image=logo_photo, bg=self.colors['background'])
+            
+            logo_label = tk.Label(logo_container, image=logo_photo, bg="#000000")
             logo_label.image = logo_photo
             logo_label.pack()
-            company_name = tk.Label(logo_container, text="TimeSlice", font=("Arial", 36, "bold"),
-                                    bg=self.colors['background'], fg=self.colors['text'])
-            company_name.pack(pady=20)
+            
         except Exception as e:
             print(f"Error loading logo: {e}")
             logo_label = tk.Label(logo_container, text="TIMESLICE", font=("Arial", 48, "bold"),
-                                  bg=self.colors['background'], fg=self.colors['text'])
+                                bg="#000000", fg="#CDA457")
             logo_label.pack()
+            
         instruction = tk.Label(logo_frame, text="Click anywhere or press any key to continue", font=("Arial", 12),
-                               bg=self.colors['background'], fg=self.colors['text_secondary'])
+                            bg="#000000", fg="#CDA457")  # Gold text color
         instruction.place(relx=0.5, rely=0.9, anchor='center')
         self.screens.append(logo_frame)
 
@@ -269,7 +281,7 @@ class SplashScreenApp:
         app_name = tk.Label(name_frame, text="TIMESLICE", font=("Arial", 64, "bold"), bg=self.colors['background'],
                             fg=self.colors['text'])
         app_name.place(relx=0.5, rely=0.5, anchor='center')
-        tagline = tk.Label(name_frame, text="Track, Analyze, Optimize Your Time", font=("Arial", 18),
+        tagline = tk.Label(name_frame, text="EVERY SECOND COUNTS, EVERY PROCESS OPTIMIZED", font=("Arial", 10),
                            bg=self.colors['background'], fg=self.colors['text_secondary'])
         tagline.place(relx=0.5, rely=0.6, anchor='center')
         instruction = tk.Label(name_frame, text="Click anywhere or press any key to continue", font=("Arial", 12),

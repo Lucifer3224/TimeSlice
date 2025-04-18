@@ -30,7 +30,9 @@ class SchedulerPage(tk.Frame):
             "Priority": [],
             "Round Robin": []
         }
-
+        
+        # Store the Round Robin quantum value (default 2)
+        self.rr_quantum = tk.StringVar(value="2")
         
         self.frame = ctk.CTkScrollableFrame(master=self, width=width, height=height,
                                             corner_radius=15, fg_color=colors['background'])
@@ -40,7 +42,15 @@ class SchedulerPage(tk.Frame):
                                    font=("Arial", 20, "bold"), text_color=colors['text'])
         title_label.pack(pady=10)
 
-        self.tabview = ctk.CTkTabview(self.frame, width=500, height=50, fg_color=colors['background'])
+        self.tabview = ctk.CTkTabview(
+            self.frame, 
+            width=500, 
+            height=50, 
+            fg_color="#0A0A0A",  # Dark background
+            segmented_button_fg_color="#CDA457",  # Gold for active tab
+            segmented_button_selected_color="#8A7439",  # Darker gold for selected
+            segmented_button_unselected_color="#0A0A0A"  # Dark for unselected
+        )
         self.tabview.pack(fill="both", expand=True, padx=10, pady=10)
         self.tabview.add("FCFS")
         self.tabview.add("SJF")
@@ -54,10 +64,6 @@ class SchedulerPage(tk.Frame):
 
         button_frame1 = ctk.CTkFrame(self.frame, fg_color=colors['background'])
         button_frame1.pack(pady=5)
-
-        ctk.CTkButton(button_frame1, text="Show output", fg_color=colors['button_bg'],
-                      hover_color=colors['toggle_bg'], text_color=colors['button_fg'],
-                      font=("Arial", 14, "bold"), corner_radius=10).pack(side="left", pady=5, padx=10)
 
         ctk.CTkButton(button_frame1, text="Run with Live Scheduler", fg_color=colors['button_bg'],
                       hover_color=colors['toggle_bg'], text_color=colors['button_fg'],
@@ -129,7 +135,8 @@ class SchedulerPage(tk.Frame):
         if tab == "Priority":
             data["Priority"] = self.entries[tab]["Priority"].get()
         if tab == "Round Robin":
-            data["Quantum"] = self.entries[tab]["Quantum"].get()
+            # For Round Robin, use the common quantum value instead of per-process quantum
+            data["Quantum"] = self.rr_quantum.get()
         if tab in ["SJF", "Priority"]:
             data["Scheduling Type"] = self.priority_var[tab].get() 
         
@@ -138,7 +145,13 @@ class SchedulerPage(tk.Frame):
 
     def display_process(self, tab, data):
         process_text = ', '.join([f"{k}: {v}" for k, v in data.items()])
-        container = ctk.CTkFrame(self.process_display, fg_color=self.colors['background'])
+        container = ctk.CTkFrame(
+            self.process_display, 
+            fg_color="#0A0A0A",  # Dark background
+            border_color="#CDA457",  # Gold border
+            border_width=1,
+            corner_radius=8
+        )
         container.pack(pady=5, fill="x", padx=20)
 
         label = ctk.CTkLabel(container, text=process_text, anchor="w", justify="left",
@@ -164,6 +177,14 @@ class SchedulerPage(tk.Frame):
         if value and not value.isdigit():
             messagebox.showerror("Error", "Input must be an integer.")
             entry_widget.delete(0, tk.END)
+
+    def validate_quantum(self, event, entry_widget):
+        """Validate that the quantum is a positive integer."""
+        value = entry_widget.get()
+        if not value or not value.isdigit() or int(value) <= 0:
+            messagebox.showerror("Error", "Time quantum must be a positive integer.")
+            entry_widget.delete(0, tk.END)
+            entry_widget.insert(0, "2")  # Reset to default
 
     def get_formatted_processes(self):
         formatted = []
@@ -258,12 +279,37 @@ class SchedulerPage(tk.Frame):
 
     def create_round_robin_tab(self):
         self.entries["Round Robin"] = {}
-        for field in ["Process Name", "Arrival Time", "Burst Time", "Quantum"]:
+        
+        # Create a frame for the time quantum at the top of the tab
+        quantum_settings_frame = ctk.CTkFrame(self.tabview.tab("Round Robin"), fg_color=self.colors['background'])
+        quantum_settings_frame.pack(pady=(10, 20), fill="x")
+        
+        ctk.CTkLabel(quantum_settings_frame, text="Time Quantum (for all processes):",
+                    text_color=self.colors['text']).pack(side="left", padx=(10, 5))
+        
+        quantum_entry = ctk.CTkEntry(quantum_settings_frame, width=80,
+                                    textvariable=self.rr_quantum,
+                                    fg_color=self.colors['background'],
+                                    text_color=self.colors['text'])
+        quantum_entry.pack(side="left", padx=5)
+        
+        # Validate quantum is a positive integer when focus leaves the field
+        quantum_entry.bind("<FocusOut>", lambda e: self.validate_quantum(e, quantum_entry))
+        
+        # Add separator
+        separator_label = ctk.CTkLabel(self.tabview.tab("Round Robin"), 
+                                      text="Process Details", 
+                                      font=("Arial", 12, "bold"),
+                                      text_color=self.colors['text'])
+        separator_label.pack(pady=(0, 10))
+        
+        # Create process entry fields (without quantum field)
+        for field in ["Process Name", "Arrival Time", "Burst Time"]:
             entry = ctk.CTkEntry(self.tabview.tab("Round Robin"), width=400, height=40,
-                                 corner_radius=10, placeholder_text=field,
-                                 fg_color=self.colors['background'],
-                                 text_color=self.colors['text'],
-                                 placeholder_text_color=self.colors['text_secondary'])
+                                corner_radius=10, placeholder_text=field,
+                                fg_color=self.colors['background'],
+                                text_color=self.colors['text'],
+                                placeholder_text_color=self.colors['text_secondary'])
             entry.pack(pady=5)
             self.entries["Round Robin"][field] = entry
             if field != "Process Name":
