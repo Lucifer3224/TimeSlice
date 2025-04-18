@@ -65,20 +65,31 @@ class SchedulerPage(tk.Frame):
         button_frame1 = ctk.CTkFrame(self.frame, fg_color=colors['background'])
         button_frame1.pack(pady=5)
 
-        ctk.CTkButton(button_frame1, text="Run with Live Scheduler", fg_color=colors['button_bg'],
-                      hover_color=colors['toggle_bg'], text_color=colors['button_fg'],
-                      font=("Arial", 14, "bold"), corner_radius=10,
-                      command=lambda: self.on_run_live_scheduler(self.process_list)).pack(side="left", pady=5, padx=10)
+        ctk.CTkButton(button_frame1, text="Run with Live Scheduler",
+                       fg_color=colors['button_bg'],
+                      hover_color=colors['toggle_bg'],
+                        text_color=colors['button_fg'],
+                      font=("Arial", 14, "bold"),
+                        corner_radius=10,
+                      command=lambda: self.on_run_live_scheduler(self.process_list)
+                      ).pack(side="left", pady=5, padx=10)
 
-        ctk.CTkButton(button_frame1, text="add process", fg_color=colors['button_bg'],
-                      hover_color=colors['toggle_bg'], text_color=colors['button_fg'],
+        ctk.CTkButton(button_frame1, text="add process"
+                      , fg_color=colors['button_bg'],
+                      hover_color=colors['toggle_bg']
+                      , text_color=colors['button_fg'],
                       font=("Arial", 14, "bold"), corner_radius=10,
-                      command=self.add_process_by_selected_tab).pack(side="left", pady=10, padx=10)
+                      command=self.add_process_by_selected_tab
+                      ).pack(side="left", pady=10, padx=10)
 
-        ctk.CTkButton(button_frame1, text="Clear all process", fg_color=colors['sign_out_bg'],
-                      hover_color=colors['toggle_bg'], text_color=colors['sign_out_fg'],
-                      font=("Arial", 14, "bold"), corner_radius=10,
-                      command=self.clear_process_by_selected_tab).pack(side="left", pady=10, padx=10)
+        ctk.CTkButton(button_frame1, text="Clear all process",
+                       fg_color=colors['sign_out_bg'],
+                      hover_color=colors['toggle_bg'], 
+                      text_color=colors['sign_out_fg'],
+                      font=("Arial", 14, "bold"), 
+                      corner_radius=10,
+                      command=self.clear_process_by_selected_tab
+                      ).pack(side="left", pady=10, padx=10)
         ctk.CTkLabel(self.frame, text="if you enter more than processes with different type will scheduler last type ",
                                    font=("Arial", 10,"bold"), text_color=colors['text']).pack(pady=10)
 
@@ -105,7 +116,15 @@ class SchedulerPage(tk.Frame):
             value = entry.get().strip()
             if field != "Process Name" and not value.isdigit():
                 return
-            
+        if selected_tab == "Round Robin":
+            quantum = self.entries[selected_tab]["Quantum"].get().strip()
+            self.rr_quantum = tk.StringVar(value=quantum)
+
+            # Check all processes to ensure quantum hasn't changed
+            for process in self.process_list[selected_tab]:
+                if process["Quantum"] != quantum:
+                    messagebox.showerror("Error", "Changing quantum time after adding the first process is not allowed.")
+                    return
 
         new_process_name = self.entries[selected_tab]["Process Name"].get().strip()
         for process in self.process_list[selected_tab]:
@@ -272,10 +291,16 @@ class SchedulerPage(tk.Frame):
         self.priority_var["Priority"] = ctk.StringVar(value="Non-Preemptive")
         radio_frame = ctk.CTkFrame(self.tabview.tab("Priority"), fg_color=self.colors['background'])
         radio_frame.pack(pady=5)
-        ctk.CTkRadioButton(radio_frame, text="Non-Preemptive", variable=self.priority_var["Priority"],
-                           value="Non-Preemptive", text_color=self.colors['text']).pack(side="left", padx=5)
-        ctk.CTkRadioButton(radio_frame, text="Preemptive", variable=self.priority_var["Priority"],
-                           value="Preemptive", text_color=self.colors['text']).pack(side="left", padx=20)
+        ctk.CTkRadioButton(radio_frame, text="Non-Preemptive", 
+                           variable=self.priority_var["Priority"],
+                           value="Non-Preemptive",
+                             text_color=self.colors['text']
+                             ).pack(side="left", padx=5)
+        ctk.CTkRadioButton(radio_frame, text="Preemptive", 
+                           variable=self.priority_var["Priority"],
+                           value="Preemptive", 
+                           text_color=self.colors['text']
+                           ).pack(side="left", padx=20)
 
     def create_round_robin_tab(self):
  
@@ -290,3 +315,5 @@ class SchedulerPage(tk.Frame):
             self.entries["Round Robin"][field] = entry
             if field != "Process Name":
                 entry.bind("<FocusOut>", lambda e, ent=entry: self.validate_integer_input(e, ent))
+            if field != "Quantum":
+                  entry.bind("<FocusOut>", lambda e, ent=entry: self.validate_quantum(e, ent))
