@@ -278,14 +278,38 @@ class SchedulerPage(tk.Frame):
                            value="Preemptive", text_color=self.colors['text']).pack(side="left", padx=20)
 
     def create_round_robin_tab(self):
- 
         self.entries["Round Robin"] = {}
-        for field in ["Process Name", "Arrival Time", "Burst Time", "Quantum"]:
+        
+        # Create a frame for the time quantum at the top of the tab
+        quantum_settings_frame = ctk.CTkFrame(self.tabview.tab("Round Robin"), fg_color=self.colors['background'])
+        quantum_settings_frame.pack(pady=(10, 20), fill="x")
+        
+        ctk.CTkLabel(quantum_settings_frame, text="Time Quantum (for all processes):",
+                    text_color=self.colors['text']).pack(side="left", padx=(10, 5))
+        
+        quantum_entry = ctk.CTkEntry(quantum_settings_frame, width=80,
+                                    textvariable=self.rr_quantum,
+                                    fg_color=self.colors['background'],
+                                    text_color=self.colors['text'])
+        quantum_entry.pack(side="left", padx=5)
+        
+        # Validate quantum is a positive integer when focus leaves the field
+        quantum_entry.bind("<FocusOut>", lambda e: self.validate_quantum(e, quantum_entry))
+        
+        # Add separator
+        separator_label = ctk.CTkLabel(self.tabview.tab("Round Robin"), 
+                                      text="Process Details", 
+                                      font=("Arial", 12, "bold"),
+                                      text_color=self.colors['text'])
+        separator_label.pack(pady=(0, 10))
+        
+        # Create process entry fields (without quantum field)
+        for field in ["Process Name", "Arrival Time", "Burst Time"]:
             entry = ctk.CTkEntry(self.tabview.tab("Round Robin"), width=400, height=40,
-                                 corner_radius=10, placeholder_text=field,
-                                 fg_color=self.colors['background'],
-                                 text_color=self.colors['text'],
-                                 placeholder_text_color=self.colors['text_secondary'])
+                                corner_radius=10, placeholder_text=field,
+                                fg_color=self.colors['background'],
+                                text_color=self.colors['text'],
+                                placeholder_text_color=self.colors['text_secondary'])
             entry.pack(pady=5)
             self.entries["Round Robin"][field] = entry
             if field != "Process Name":
