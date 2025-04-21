@@ -1,6 +1,7 @@
 import tkinter as tk
 from PIL import Image, ImageTk
 import time
+import ctypes
 
 from GUI_Modules.output import OutputPage
 from GUI_Modules.scheduler_page import SchedulerPage
@@ -19,6 +20,34 @@ class SplashScreenApp:
         self.logo_blue = "#3D8BAE"  # Blue from the clock
         self.logo_dark = "#1A1A1A"  # Dark color for text
         self.colors = self.get_theme_colors()
+
+        # Set the title bar color to gold on Windows
+        try:
+            if ctypes.windll:
+                # Windows-specific title bar color change
+                self.root.update()
+                DWMWA_CAPTION_COLOR = 35
+                # Gold color in BGR format (Windows uses BGR)
+                gold_bgr = int('0x' + self.logo_gold[5:7] + self.logo_gold[3:5] + self.logo_gold[1:3], 16)
+                ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                    ctypes.windll.user32.GetParent(self.root.winfo_id()),
+                    DWMWA_CAPTION_COLOR,
+                    ctypes.byref(ctypes.c_int(gold_bgr)),
+                    ctypes.sizeof(ctypes.c_int)
+                )
+        except (AttributeError, Exception) as e:
+            print(f"Could not set title bar color: {e}")
+
+        # Add logo as the app icon
+        try:
+            logo_icon = Image.open('logo.png')
+            # Resize for icon use
+            icon_size = (32, 32)
+            logo_icon = logo_icon.resize(icon_size, Image.LANCZOS)
+            self.icon_photo = ImageTk.PhotoImage(logo_icon)
+            self.root.iconphoto(True, self.icon_photo)
+        except Exception as e:
+            print(f"Could not load app icon: {e}")
 
         # Get screen dimensions for centering
         screen_width = self.root.winfo_screenwidth()
@@ -124,6 +153,9 @@ class SplashScreenApp:
             # Use right direction for back navigation
             self.slide_transition(current_frame, self.home_screen, direction="right")
             self.current_screen = home_index
+            
+        # Restore gold title bar when returning to home screen
+        self.set_title_bar_color(self.logo_gold)
 
     def show_scheduler_page(self):
         """Show the Scheduler Page"""
@@ -168,6 +200,9 @@ class SplashScreenApp:
 
         self.slide_transition(self.screens[self.current_screen], live_scheduler_page, direction="left")
         self.current_screen = self.screens.index(live_scheduler_page)
+        
+        # Change title bar to black for live scheduler page
+        self.set_title_bar_color("#000000")
 
     def show_output_page(self, completed_processes=None, process_execution_history=None, process_list=None, scheduler_type=None):
         """Show the Output Page with scheduling results"""
@@ -204,6 +239,9 @@ class SplashScreenApp:
 
         self.slide_transition(self.screens[self.current_screen], output_page, direction="left")
         self.current_screen = self.screens.index(output_page)
+        
+        # Change title bar to black for output page
+        self.set_title_bar_color("#000000")
 
     def toggle_theme(self):
         """Switch between dark and light mode"""
@@ -353,6 +391,24 @@ class SplashScreenApp:
         if self.current_screen == 2:
             self.root.unbind("<Key>")
             self.root.unbind("<Button-1>")
+
+    def set_title_bar_color(self, color_hex):
+        """Set the title bar color for Windows 10/11"""
+        try:
+            if ctypes.windll:
+                # Windows-specific title bar color change
+                self.root.update()
+                DWMWA_CAPTION_COLOR = 35
+                # Convert hex to BGR format (Windows uses BGR)
+                color_bgr = int('0x' + color_hex[5:7] + color_hex[3:5] + color_hex[1:3], 16)
+                ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                    ctypes.windll.user32.GetParent(self.root.winfo_id()),
+                    DWMWA_CAPTION_COLOR,
+                    ctypes.byref(ctypes.c_int(color_bgr)),
+                    ctypes.sizeof(ctypes.c_int)
+                )
+        except (AttributeError, Exception) as e:
+            print(f"Could not set title bar color: {e}")
 
 if __name__ == "__main__":
     root = tk.Tk()

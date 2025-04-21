@@ -224,8 +224,30 @@ class LiveSchedulerPage(tk.Frame):
         )
         gantt_frame.pack(fill=tk.BOTH, expand=True, pady=10, padx=5)
 
-        self.canvas = tk.Canvas(gantt_frame, bg="white", highlightthickness=0)
+        # Create a container for the Gantt chart with scrollbars
+        gantt_container = tk.Frame(gantt_frame, bg=colors['background'])
+        gantt_container.pack(fill=tk.BOTH, expand=True)
+        
+        # Add horizontal and vertical scrollbars for the Gantt chart
+        gantt_h_scroll = tk.Scrollbar(gantt_container, orient="horizontal")
+        gantt_h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        gantt_v_scroll = tk.Scrollbar(gantt_container, orient="vertical")
+        gantt_v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Create the canvas with scroll capability
+        self.canvas = tk.Canvas(
+            gantt_container, 
+            bg="white", 
+            highlightthickness=0,
+            xscrollcommand=gantt_h_scroll.set,
+            yscrollcommand=gantt_v_scroll.set
+        )
         self.canvas.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Configure the scrollbars to work with the canvas
+        gantt_h_scroll.config(command=self.canvas.xview)
+        gantt_v_scroll.config(command=self.canvas.yview)
 
         control_frame = tk.Frame(self, bg=colors['background'])
         control_frame.pack(fill=tk.X, pady=10, padx=20)
@@ -537,53 +559,66 @@ class LiveSchedulerPage(tk.Frame):
         canvas_height = self.canvas.winfo_height() or 200
         margin = 70
 
+        # Count unique processes to calculate required height
+        unique_processes = set()
+        for entry in self.process_execution_history:
+            unique_processes.add(entry[0])
+        for proc in self.process_list:
+            unique_processes.add(proc[0])
+        
+        # Calculate the required height based on process count
+        bar_height = 25
+        bar_spacing = 10
+        y_pos = 30
+        required_height = y_pos + len(unique_processes) * (bar_height + bar_spacing) + 50  # +50 for time axis
+
         if self.process_execution_history:
             total_time = max(self.current_time, max(end for _, _, end, _ in self.process_execution_history))
         else:
             total_time = max(1, sum(duration for _, duration, *_ in self.process_list))
 
         time_scale = (canvas_width - margin - 20) / max(1, total_time)
+        
+        # Calculate needed width for the timeline
+        required_width = margin + (total_time * time_scale) + 50
+        
+        # Set scroll region to accommodate all processes and timeline
+        self.canvas.configure(scrollregion=(0, 0, max(canvas_width, required_width), max(canvas_height, required_height)))
 
         # Time axis
-        self.canvas.create_line(margin, canvas_height - 30, canvas_width - 10, canvas_height - 30, width=2)
+        self.canvas.create_line(margin, max(canvas_height, required_height) - 30, max(canvas_width, required_width) - 10, max(canvas_height, required_height) - 30, width=2)
         self.canvas.create_text(
-            canvas_width // 2, canvas_height - 10,
+            (margin + max(canvas_width, required_width) - 10) // 2, max(canvas_height, required_height) - 10,
             text="Time (seconds)", font=("Arial", 10, "bold")
         )
         tick_interval = max(1, total_time // min(10, total_time))
         for t in range(0, total_time + 1, tick_interval):
             x = margin + t * time_scale
-            self.canvas.create_line(x, canvas_height - 30, x, canvas_height - 25, width=2)
-            self.canvas.create_text(x, canvas_height - 15, text=str(t), font=("Arial", 8))
+            self.canvas.create_line(x, max(canvas_height, required_height) - 30, x, max(canvas_height, required_height) - 25, width=2)
+            self.canvas.create_text(x, max(canvas_height, required_height) - 15, text=str(t), font=("Arial", 8))
 
         self.canvas.create_text(margin // 2, 10, text="Process", font=("Arial", 10, "bold"))
 
         # Assign colors
         process_colors = [
             "#4CAF50", "#2196F3", "#FFC107", "#9C27B0", "#F44336",
-            "#009688", "#795548", "#607D8B", "#E91E63", "#673AB7"
+            "#009688", "#795548", "#607D8B", "#E91E63", "#673AB7",
+            "#3F51B5", "#FF9800", "#CDDC39", "#8BC34A", "#00BCD4"  # Added more colors
         ]
-        unique_processes = set()
-        for entry in self.process_execution_history:
-            unique_processes.add(entry[0])
-        for proc in self.process_list:
-            unique_processes.add(proc[0])
         # Sort so color assignment is stable
+        sorted_processes = sorted(unique_processes)
         process_color_map = {
             proc: process_colors[i % len(process_colors)]
-            for i, proc in enumerate(sorted(unique_processes))
+            for i, proc in enumerate(sorted_processes)
         }
 
         # If nothing has run yet, just draw process names without bars
         if not self.process_execution_history:
-            y_pos = 30
-            bar_height = 25
-            for i, process in enumerate(sorted([(p[0], i) for i, p in enumerate(self.process_list)])):
-                name, orig_idx = process
-                y = y_pos + i * (bar_height + 10)
+            for i, process_name in enumerate(sorted_processes):
+                y = y_pos + i * (bar_height + bar_spacing)
                 self.canvas.create_text(
                     margin - 5, y + bar_height / 2,
-                    text=name, anchor="e", font=("Arial", 10)
+                    text=process_name, anchor="e", font=("Arial", 10)
                 )
         else:
             # Group segments by process
@@ -591,16 +626,19 @@ class LiveSchedulerPage(tk.Frame):
             for name, start, end, status in self.process_execution_history:
                 process_timelines.setdefault(name, []).append((start, end, status))
 
-            y_pos = 30
-            bar_height = 25
             # Sort by name for consistent vertical ordering
-            for i, (name, timeline) in enumerate(sorted(process_timelines.items())):
+            for i, name in enumerate(sorted_processes):
+                if name not in process_timelines:
+                    continue
+                    
                 color = process_color_map.get(name, "#CCCCCC")
-                y = y_pos + i * (bar_height + 10)
+                y = y_pos + i * (bar_height + bar_spacing)
                 self.canvas.create_text(
                     margin - 5, y + bar_height / 2,
                     text=name, anchor="e", font=("Arial", 10)
                 )
+                
+                timeline = process_timelines[name]
                 for start, end, status in timeline:
                     x1 = margin + start * time_scale
                     x2 = margin + end * time_scale
@@ -620,7 +658,7 @@ class LiveSchedulerPage(tk.Frame):
         if self.scheduling_active and self.current_time > 0:
             current_x = margin + self.current_time * time_scale
             self.canvas.create_line(
-                current_x, 10, current_x, canvas_height - 40,
+                current_x, 10, current_x, max(canvas_height, required_height) - 40,
                 width=2, fill="red", dash=(4, 2), tags="time_marker"
             )
             self.canvas.create_text(
@@ -860,6 +898,12 @@ class LiveSchedulerPage(tk.Frame):
         self.scheduling_active = False
         self.play_button.config(text="Start Scheduling")
         self.output_button.config(state=tk.NORMAL)
+        
+        # Reset arrival time field to 0 after scheduling finishes
+        if hasattr(self, 'arrival_time'):
+            self.arrival_time.delete(0, tk.END)
+            self.arrival_time.insert(0, "0")
+            
         # Final Gantt chart update to ensure completion is shown
         self.update_gantt_chart()
 

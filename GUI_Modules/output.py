@@ -54,10 +54,32 @@ class OutputPage(tk.Frame):
         )
         gantt_frame.pack(fill=tk.X, pady=(0, 20))
 
-        # Canvas for Gantt chart
-        self.gantt_canvas = tk.Canvas(gantt_frame, bg="white", highlightthickness=1,
-                                      height=250, highlightbackground=colors['button_bg'])
-        self.gantt_canvas.pack(fill=tk.X, pady=10)
+        # Create a container for the Gantt chart with scrollbars
+        gantt_container = tk.Frame(gantt_frame, bg=colors['background'])
+        gantt_container.pack(fill=tk.X, expand=False)
+        
+        # Add horizontal scrollbar for gantt chart
+        gantt_h_scroll = tk.Scrollbar(gantt_container, orient="horizontal")
+        gantt_h_scroll.pack(side=tk.BOTTOM, fill=tk.X)
+        
+        # Add vertical scrollbar for gantt chart
+        gantt_v_scroll = tk.Scrollbar(gantt_container, orient="vertical")
+        gantt_v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Create the canvas with fixed height of 250px
+        self.gantt_canvas = tk.Canvas(
+            gantt_container, bg="white", 
+            height=250, 
+            highlightthickness=1, 
+            highlightbackground=colors['button_bg'],
+            xscrollcommand=gantt_h_scroll.set,
+            yscrollcommand=gantt_v_scroll.set
+        )
+        self.gantt_canvas.pack(fill=tk.X, expand=False)
+        
+        # Configure the scrollbars to work with the canvas
+        gantt_h_scroll.config(command=self.gantt_canvas.xview)
+        gantt_v_scroll.config(command=self.gantt_canvas.yview)
 
         # Statistics Section
         stats_frame = tk.LabelFrame(
@@ -71,9 +93,35 @@ class OutputPage(tk.Frame):
         metrics_container = tk.Frame(stats_frame, bg=colors['background'])
         metrics_container.pack(fill=tk.X, padx=10, pady=10)
 
-        # Left side - Table
-        table_frame = tk.Frame(metrics_container, bg=colors['background'])
-        table_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 20))  # Add padding to the right
+        # Left side - Create a scrollable container for the table
+        table_container = tk.Frame(metrics_container, bg=colors['background'])
+        table_container.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 20))
+        
+        # Add scrollbar for the table
+        table_scroll = tk.Scrollbar(table_container)
+        table_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        
+        # Create a canvas to hold the table with fixed height
+        table_canvas = tk.Canvas(
+            table_container, 
+            bg=colors['background'],
+            height=200,  # Fixed height
+            width=900,   # Fixed width appropriate for the table
+            yscrollcommand=table_scroll.set,
+            highlightthickness=0
+        )
+        table_canvas.pack(side=tk.LEFT)
+        table_scroll.config(command=table_canvas.yview)
+        
+        # Create a frame inside the canvas for the actual table
+        table_frame = tk.Frame(table_canvas, bg=colors['background'])
+        table_window = table_canvas.create_window((0, 0), window=table_frame, anchor="nw")
+        
+        # Ensure the scroll region updates when the table size changes
+        def configure_table_scroll_region(event):
+            table_canvas.configure(scrollregion=table_canvas.bbox("all"))
+        
+        table_frame.bind('<Configure>', configure_table_scroll_region)
 
         # Table headers
         headers = ["Process", "Arrival Time", "Burst Time", "Completion Time",
@@ -217,13 +265,31 @@ class OutputPage(tk.Frame):
             )
             return
 
+        # Count the unique processes and determine required height
+        unique_processes = sorted(set(name for name, _, _, _ in self.process_execution_history))
+        process_count = len(unique_processes)
+        
+        # Calculate needed height for all processes with spacing
+        bar_height = 25
+        bar_spacing = 10
+        y_offset = 30  # Space at top
+        required_height = y_offset + (process_count * (bar_height + bar_spacing)) + 50  # +50 for time axis at bottom
+        
+        # Set the scroll region to accommodate all processes vertically
+        self.gantt_canvas.configure(scrollregion=(0, 0, canvas_width, max(canvas_height, required_height)))
+
         total_time = max(end for _, _, end, _ in self.process_execution_history)
         time_scale = (canvas_width - margin - 20) / max(1, total_time)
+        
+        # If the timeline is long, make the scroll region wider to ensure all time points are visible
+        if total_time > 20:  # If we have many time points
+            extended_width = margin + (total_time * max(time_scale, 20)) + 20
+            self.gantt_canvas.configure(scrollregion=(0, 0, max(canvas_width, extended_width), max(canvas_height, required_height)))
 
         # Time axis
-        self.gantt_canvas.create_line(margin, canvas_height - 30, canvas_width - 10, canvas_height - 30, width=2)
+        self.gantt_canvas.create_line(margin, max(canvas_height, required_height) - 30, canvas_width - 10, max(canvas_height, required_height) - 30, width=2)
         self.gantt_canvas.create_text(
-            canvas_width // 2, canvas_height - 10,
+            canvas_width // 2, max(canvas_height, required_height) - 10,
             text="Time (seconds)", font=("Arial", 10, "bold")
         )
 
@@ -231,20 +297,20 @@ class OutputPage(tk.Frame):
         tick_interval = max(1, math.ceil(total_time / 10))  # Adjust for readability
         for t in range(0, total_time + 1, tick_interval):
             x = margin + t * time_scale
-            self.gantt_canvas.create_line(x, canvas_height - 30, x, canvas_height - 25, width=2)
-            self.gantt_canvas.create_text(x, canvas_height - 15, text=str(t), font=("Arial", 8))
+            self.gantt_canvas.create_line(x, max(canvas_height, required_height) - 30, x, max(canvas_height, required_height) - 25, width=2)
+            self.gantt_canvas.create_text(x, max(canvas_height, required_height) - 15, text=str(t), font=("Arial", 8))
 
         self.gantt_canvas.create_text(margin // 2, 10, text="Process", font=("Arial", 10, "bold"))
 
         # Assign colors for processes
         process_colors = [
             "#4CAF50", "#2196F3", "#FFC107", "#9C27B0", "#F44336",
-            "#009688", "#795548", "#607D8B", "#E91E63", "#673AB7"
+            "#009688", "#795548", "#607D8B", "#E91E63", "#673AB7",
+            "#3F51B5", "#FF9800", "#CDDC39", "#8BC34A", "#00BCD4"  # Added more colors
         ]
-        unique_processes = set(name for name, _, _, _ in self.process_execution_history)
         process_color_map = {
             proc: process_colors[i % len(process_colors)]
-            for i, proc in enumerate(sorted(unique_processes))
+            for i, proc in enumerate(unique_processes)
         }
 
         # Group segments by process
@@ -254,11 +320,10 @@ class OutputPage(tk.Frame):
                 process_timelines.setdefault(name, []).append((start, end))
 
         # Draw process execution bars
-        y_pos = 30
-        bar_height = 25
-        for i, (name, timeline) in enumerate(sorted(process_timelines.items())):
+        y_pos = y_offset
+        for i, name in enumerate(unique_processes):
             color = process_color_map.get(name, "#CCCCCC")
-            y = y_pos + i * (bar_height + 10)
+            y = y_pos + i * (bar_height + bar_spacing)
 
             # Process name label
             self.gantt_canvas.create_text(
@@ -267,6 +332,7 @@ class OutputPage(tk.Frame):
             )
 
             # Draw execution segments
+            timeline = process_timelines.get(name, [])
             for start, end in timeline:
                 x1 = margin + start * time_scale
                 x2 = margin + end * time_scale
