@@ -30,7 +30,13 @@ class SchedulerPage(tk.Frame):
             "Priority": [],
             "Round Robin": []
         }
-        
+        self.checkbox_vars = {
+            "FCFS": tk.BooleanVar(),
+            "SJF": tk.BooleanVar(),
+            "Priority": tk.BooleanVar(),
+            "Round Robin": tk.BooleanVar()
+        }
+
         # Store the Round Robin quantum value (default 2)
         self.rr_quantum = tk.StringVar(value="2")
         
@@ -130,8 +136,9 @@ class SchedulerPage(tk.Frame):
             "Process Name": self.entries[tab]["Process Name"].get(),
             "Arrival Time": self.entries[tab]["Arrival Time"].get(),
             "Burst Time": self.entries[tab]["Burst Time"].get()
+            
         }
-
+        self.checkbox_vars[tab].get()
         if tab == "Priority":
             data["Priority"] = self.entries[tab]["Priority"].get()
         if tab == "Round Robin":
@@ -207,16 +214,16 @@ class SchedulerPage(tk.Frame):
                 quantum = int(process["Quantum"])
                 formatted.append([name, burst, arrival, quantum])
         return formatted
-
-    def on_run_live_scheduler(self, process_list):
-        if self.process_list ==self.test :
+    def on_run_live_scheduler(self, process_list): 
+        if all(len(v) == 0 for v in self.process_list.values()):
             messagebox.showerror("Error", "Please enter processes.")
             return
-        else  :
-            if self.navigate_live_scheduler:
-                current_tab = self.tabview.get()
-                formatted_processes = self.get_formatted_processes()
-                self.navigate_live_scheduler(formatted_processes, current_tab)
+
+        if self.navigate_live_scheduler:
+            current_tab = self.tabview.get()
+            formatted_processes = self.get_formatted_processes()
+            flag = self.checkbox_vars[current_tab].get()  # 1 = with live scheduler, 0 = without
+            self.navigate_live_scheduler(formatted_processes, current_tab, flag)
 
     def on_back_button_click(self):
         if self.navigate_home:
@@ -234,6 +241,12 @@ class SchedulerPage(tk.Frame):
             self.entries["FCFS"][field] = entry
             if field != "Process Name":
                 entry.bind("<FocusOut>", lambda e, ent=entry: self.validate_integer_input(e, ent))
+        ctk.CTkCheckBox(
+            self.tabview.tab("FCFS"),
+            text="live schedular",
+            variable=self.checkbox_vars["FCFS"],
+            text_color=self.colors['text']
+        ).pack(pady=5)
 
     def create_sjf_tab(self):
         self.entries["SJF"] = {}
@@ -255,6 +268,12 @@ class SchedulerPage(tk.Frame):
                            value="Non-Preemptive", text_color=self.colors['text']).pack(side="left", padx=5)
         ctk.CTkRadioButton(radio_frame, text="Preemptive", variable=self.priority_var["SJF"],
                            value="Preemptive", text_color=self.colors['text']).pack(side="left", padx=20)
+        ctk.CTkCheckBox(
+            self.tabview.tab("SJF"),
+           text="live schedular",
+            variable=self.checkbox_vars["SJF"],
+            text_color=self.colors['text']
+        ).pack(pady=5)
 
     def create_priority_tab(self):
         self.entries["Priority"] = {}
@@ -276,6 +295,12 @@ class SchedulerPage(tk.Frame):
                            value="Non-Preemptive", text_color=self.colors['text']).pack(side="left", padx=5)
         ctk.CTkRadioButton(radio_frame, text="Preemptive", variable=self.priority_var["Priority"],
                            value="Preemptive", text_color=self.colors['text']).pack(side="left", padx=20)
+        ctk.CTkCheckBox(
+            self.tabview.tab("Priority"),
+           text="live schedular",
+            variable=self.checkbox_vars["Priority"],
+            text_color=self.colors['text']
+        ).pack(pady=5)
 
     def create_round_robin_tab(self):
         self.entries["Round Robin"] = {}
@@ -313,4 +338,11 @@ class SchedulerPage(tk.Frame):
             entry.pack(pady=5)
             self.entries["Round Robin"][field] = entry
             if field != "Process Name":
-                entry.bind("<FocusOut>", lambda e, ent=entry: self.validate_integer_input(e, ent))
+                entry.bind("<FocusOut>", lambda e, ent=entry: self.validate_integer_input(e, ent))  
+
+        ctk.CTkCheckBox(
+                self.tabview.tab("Round Robin"),
+                text="live schedular",
+                variable=self.checkbox_vars["Round Robin"],
+                text_color=self.colors['text']
+            ).pack(pady=5)

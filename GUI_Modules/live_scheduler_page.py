@@ -12,10 +12,11 @@ from Schedulers.sjf_scheduler import SJFScheduler
 
 class LiveSchedulerPage(tk.Frame):
     def __init__(self, parent, colors, width, height, navigate_home,
-                 process_list=None, scheduler_type="FCFS", navigate_to_output=None):
+                 process_list=None, scheduler_type="FCFS", flag_live_scheduler=0 ,navigate_to_output=None):
         super().__init__(parent, bg=colors['background'])
 
         # Store parameters
+        self.flag_live_scheduler=flag_live_scheduler 
         self.colors = colors
         self.navigate_home = navigate_home
         self.navigate_to_output = navigate_to_output

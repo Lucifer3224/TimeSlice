@@ -176,7 +176,7 @@ class SplashScreenApp:
         self.slide_transition(self.screens[self.current_screen], scheduler_page, direction="left")
         self.current_screen = self.screens.index(scheduler_page)
 
-    def show_live_scheduler_page(self, process_list, scheduler_type="FCFS"):
+    def show_live_scheduler_page(self, process_list, scheduler_type="FCFS",flag_live_scheduler=0):
         """Show the Live Scheduler Page"""
         live_scheduler_page = None
 
@@ -184,8 +184,8 @@ class SplashScreenApp:
             # Replace existing page to ensure we get fresh parameters
             live_scheduler_page = LiveSchedulerPage(
                 self.root, self.colors, self.window_width, self.window_height,
-                self.show_home_screen, process_list, scheduler_type,
-                navigate_to_output=self.show_output_page  # Add this parameter
+            self.show_home_screen, process_list, scheduler_type, flag_live_scheduler,
+            navigate_to_output=self.show_output_page # Add this parameter
             )
             self.screens[self.screens.index(self.page_screens['live_scheduler'])] = live_scheduler_page
             self.page_screens['live_scheduler'] = live_scheduler_page
