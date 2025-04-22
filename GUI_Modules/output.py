@@ -23,7 +23,7 @@ class OutputPage(tk.Frame):
         header.pack(fill=tk.X, side=tk.TOP)
 
         back_button = tk.Button(
-            header, text="← Back to Scheduler", command=lambda: self.navigate_to_scheduler(),
+            header, text="← Back to Scheduler", command=lambda: self.navigate_to_scheduler(back_direction="right"),
             bg=colors['button_bg'], fg=colors['button_fg'],
             bd=0, font=("Arial", 12, "bold")
         )

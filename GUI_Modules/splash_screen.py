@@ -157,7 +157,7 @@ class SplashScreenApp:
         # Restore gold title bar when returning to home screen
         self.set_title_bar_color(self.logo_gold)
 
-    def show_scheduler_page(self):
+    def show_scheduler_page(self, process_list=None, scheduler_type=None, back_direction=None):
         """Show the Scheduler Page"""
         # Check if scheduler already exists
         scheduler_page = None
@@ -173,10 +173,12 @@ class SplashScreenApp:
             self.page_screens['scheduler'] = scheduler_page
 
         # Use slide transition for page navigation
-        self.slide_transition(self.screens[self.current_screen], scheduler_page, direction="left")
+        # If back_direction is specified, use that direction for the transition
+        direction = back_direction if back_direction else "left"
+        self.slide_transition(self.screens[self.current_screen], scheduler_page, direction=direction)
         self.current_screen = self.screens.index(scheduler_page)
 
-    def show_live_scheduler_page(self, process_list, scheduler_type="FCFS",flag_live_scheduler=0):
+    def show_live_scheduler_page(self, process_list, scheduler_type="FCFS", flag_live_scheduler=0, back_direction=None):
         """Show the Live Scheduler Page"""
         live_scheduler_page = None
 
@@ -184,21 +186,25 @@ class SplashScreenApp:
             # Replace existing page to ensure we get fresh parameters
             live_scheduler_page = LiveSchedulerPage(
                 self.root, self.colors, self.window_width, self.window_height,
-            self.show_home_screen, process_list, scheduler_type, flag_live_scheduler,
-            navigate_to_output=self.show_output_page # Add this parameter
+                self.show_home_screen, process_list, scheduler_type, flag_live_scheduler,
+                navigate_to_output=self.show_output_page,
+                navigate_to_scheduler=self.show_scheduler_page
             )
             self.screens[self.screens.index(self.page_screens['live_scheduler'])] = live_scheduler_page
             self.page_screens['live_scheduler'] = live_scheduler_page
         else:
             live_scheduler_page = LiveSchedulerPage(
                 self.root, self.colors, self.window_width, self.window_height,
-                self.show_home_screen, process_list, scheduler_type,
-                navigate_to_output=self.show_output_page  # Add this parameter
+                self.show_home_screen, process_list, scheduler_type, flag_live_scheduler,
+                navigate_to_output=self.show_output_page,
+                navigate_to_scheduler=self.show_scheduler_page
             )
             self.screens.append(live_scheduler_page)
             self.page_screens['live_scheduler'] = live_scheduler_page
 
-        self.slide_transition(self.screens[self.current_screen], live_scheduler_page, direction="left")
+        # Use the specified direction or default to left
+        direction = back_direction if back_direction else "left"
+        self.slide_transition(self.screens[self.current_screen], live_scheduler_page, direction=direction)
         self.current_screen = self.screens.index(live_scheduler_page)
         
         # Change title bar to black for live scheduler page
@@ -217,12 +223,19 @@ class SplashScreenApp:
         # Use the passed process_list if provided, else fallback to self.process_list
         current_process_list = process_list if process_list is not None else self.process_list
 
+        # Create a lambda that supports the back_direction parameter
+        back_to_scheduler_func = lambda back_direction=None: self.show_live_scheduler_page(
+            current_process_list, 
+            scheduler_type, 
+            back_direction=back_direction
+        )
+
         if 'output_page' in self.page_screens:
             # Replace existing page
             output_page = OutputPage(
                 self.root, self.colors, self.window_width, self.window_height,
                 self.show_home_screen,
-                lambda: self.show_live_scheduler_page(current_process_list, scheduler_type),
+                back_to_scheduler_func,
                 completed_processes, process_execution_history, scheduler_type
             )
             self.screens[self.screens.index(self.page_screens['output_page'])] = output_page
@@ -231,7 +244,7 @@ class SplashScreenApp:
             output_page = OutputPage(
                 self.root, self.colors, self.window_width, self.window_height,
                 self.show_home_screen,
-                lambda: self.show_live_scheduler_page(current_process_list, scheduler_type),
+                back_to_scheduler_func,
                 completed_processes, process_execution_history, scheduler_type
             )
             self.screens.append(output_page)

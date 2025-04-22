@@ -12,7 +12,8 @@ from Schedulers.sjf_scheduler import SJFScheduler
 
 class LiveSchedulerPage(tk.Frame):
     def __init__(self, parent, colors, width, height, navigate_home,
-                 process_list=None, scheduler_type="FCFS", flag_live_scheduler=False ,navigate_to_output=None):
+                 process_list=None, scheduler_type="FCFS", flag_live_scheduler=0,
+                 navigate_to_output=None, navigate_to_scheduler=None):
         super().__init__(parent, bg=colors['background'])
 
         # Store parameters
@@ -20,13 +21,14 @@ class LiveSchedulerPage(tk.Frame):
         self.colors = colors
         self.navigate_home = navigate_home
         self.navigate_to_output = navigate_to_output
+        self.navigate_to_scheduler = navigate_to_scheduler
         self.width = width
         self.height = height
         self.scheduler_type = scheduler_type
-        # print ( self.flag_live_scheduler )
-        # ✅ Safely copy the list and save as original_process_list
+
+        # Safely copy the list to restore when reset and save as original_process_list
         self.original_process_list = process_list.copy() if isinstance(process_list, list) else []
-        self.process_list = self.original_process_list.copy()  # Working copy
+        self.process_list = self.original_process_list.copy()  # Working copy can be modified
 
         # Scheduler state
         self.scheduling_active = False
@@ -62,7 +64,7 @@ class LiveSchedulerPage(tk.Frame):
         # Left Panel - Process Control
         left_frame = tk.Frame(main_frame, bg=colors['background'], width=width // 2 - 30)
         left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 10))
-        left_frame.pack_propagate(False)
+        left_frame.pack_propagate(False) # Prevent resizing to fit content
 
         # Process Input Section
         process_frame = tk.LabelFrame(
@@ -111,20 +113,29 @@ class LiveSchedulerPage(tk.Frame):
             self.priority_value.pack(side=tk.LEFT, padx=5)
             self.priority_value.insert(0, "0")
             row += 1
-
+            
         elif self.scheduler_type == "Round Robin":
-            pass  # No specific input needed here anymore for RR
+            pass
 
-        # Remove the primitive/non-primitive check button and enforce consistent process types.
         if self.scheduler_type in ["SJF", "Priority"]:
             self.preemptive_var = tk.BooleanVar(value=self.process_list[0][3] if self.process_list else False)
 
-        add_button = tk.Button(
+        self.add_button = tk.Button(
             process_frame, text="Add Process",
             bg=colors['button_bg'], fg=colors['button_fg'],
             command=self.add_process
         )
-        add_button.grid(row=row, column=0, columnspan=2, pady=10)
+        self.add_button.grid(row=row, column=0, columnspan=2, pady=10)
+        
+        # Disable the add process button if live scheduling is not enabled
+        if not self.flag_live_scheduler:
+            self.add_button.config(state=tk.DISABLED)
+            # Add a label to explain why the button is disabled
+            tk.Label(
+                process_frame, 
+                text="Live scheduling disabled. Cannot add new processes.",
+                bg=colors['background'], fg="red", font=("Arial", 8)
+            ).grid(row=row+1, column=0, columnspan=2, pady=(0, 5))
 
         # Process List
         list_frame = tk.LabelFrame(
@@ -150,6 +161,10 @@ class LiveSchedulerPage(tk.Frame):
             command=self.delete_selected_process
         )
         delete_button.pack(pady=5)
+        
+        # Also disable delete button if live scheduling is not enabled
+        if not self.flag_live_scheduler:
+            delete_button.config(state=tk.DISABLED)
 
         # Right Panel - Visualization
         right_frame = tk.Frame(main_frame, bg=colors['background'], width=width // 2 - 30)
@@ -952,7 +967,9 @@ class LiveSchedulerPage(tk.Frame):
         if messagebox.askyesno("Exit", "Are you sure you want to exit?"):
             self.scheduling_active = False
             if hasattr(self, 'navigate_to_scheduler') and self.navigate_to_scheduler:
-                self.navigate_to_scheduler(self.process_list, self.scheduler_type)
+                # Pass process_list and scheduler_type to navigate back to the scheduler page
+                # The "right" direction argument will be handled in splash_screen.py
+                self.navigate_to_scheduler(self.process_list, self.scheduler_type, back_direction="right")
             else:
                 if self.navigate_home:
                     self.navigate_home()
