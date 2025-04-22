@@ -12,7 +12,7 @@ from Schedulers.sjf_scheduler import SJFScheduler
 
 class LiveSchedulerPage(tk.Frame):
     def __init__(self, parent, colors, width, height, navigate_home,
-                 process_list=None, scheduler_type="FCFS", flag_live_scheduler=0 ,navigate_to_output=None):
+                 process_list=None, scheduler_type="FCFS", flag_live_scheduler=False ,navigate_to_output=None):
         super().__init__(parent, bg=colors['background'])
 
         # Store parameters
@@ -23,7 +23,7 @@ class LiveSchedulerPage(tk.Frame):
         self.width = width
         self.height = height
         self.scheduler_type = scheduler_type
-
+        # print ( self.flag_live_scheduler )
         # ✅ Safely copy the list and save as original_process_list
         self.original_process_list = process_list.copy() if isinstance(process_list, list) else []
         self.process_list = self.original_process_list.copy()  # Working copy
