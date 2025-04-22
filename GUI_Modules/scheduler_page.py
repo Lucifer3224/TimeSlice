@@ -71,7 +71,7 @@ class SchedulerPage(tk.Frame):
         button_frame1 = ctk.CTkFrame(self.frame, fg_color=colors['background'])
         button_frame1.pack(pady=5)
 
-        ctk.CTkButton(button_frame1, text="Run with Live Scheduler", fg_color=colors['button_bg'],
+        ctk.CTkButton(button_frame1, text="Show Scheduler", fg_color=colors['button_bg'],
                       hover_color=colors['toggle_bg'], text_color=colors['button_fg'],
                       font=("Arial", 14, "bold"), corner_radius=10,
                       command=lambda: self.on_run_live_scheduler(self.process_list)).pack(side="left", pady=5, padx=10)
