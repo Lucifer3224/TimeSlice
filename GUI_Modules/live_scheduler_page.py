@@ -113,7 +113,7 @@ class LiveSchedulerPage(tk.Frame):
             self.priority_value.pack(side=tk.LEFT, padx=5)
             self.priority_value.insert(0, "0")
             row += 1
-            
+
         elif self.scheduler_type == "Round Robin":
             pass
 
@@ -290,12 +290,7 @@ class LiveSchedulerPage(tk.Frame):
         )
         self.output_button.pack(side=tk.RIGHT, padx=10)
 
-        # Add sample processes
-
-        if not self.process_list:
-            self.add_sample_processes()
-        else:
-            self.populate_from_passed_processes(self.process_list)
+        self.populate_from_passed_processes(self.process_list)
 
     def populate_from_passed_processes(self, process_list):
         self.process_list = process_list.copy() if isinstance(process_list, list) else []
@@ -321,7 +316,6 @@ class LiveSchedulerPage(tk.Frame):
 
         # Progressbar style
         self.style = ttk.Style()
-        self.update_progressbar_color()
 
     def update_queue_labels(self):
         """Refresh the Ready Queue and Waiting Queue label text."""
@@ -337,64 +331,6 @@ class LiveSchedulerPage(tk.Frame):
         self.ready_queue_label.config(text=ready_text)
         self.waiting_queue_label.config(text=waiting_text)
 
-    def add_sample_processes(self):
-        if self.scheduler_type == "FCFS":
-            sample_processes = [
-                ("Process 1", 5, 0),
-                ("Process 2", 3, 1),
-                ("Process 3", 8, 2)
-            ]
-        elif self.scheduler_type == "SJF":
-            sample_processes = [
-                ("Process 1", 5, 0, False),  # name, burst time, arrival time, preemptive
-                ("Process 2", 3, 1, False),
-                ("Process 3", 8, 2, False)
-            ]
-        elif self.scheduler_type == "Priority":
-            sample_processes = [
-                ("Process 1", 5, 0, 3, False),  # name, burst time, arrival time, priority, preemptive
-                ("Process 2", 3, 1, 1, False),
-                ("Process 3", 8, 2, 2, False)
-            ]
-        elif self.scheduler_type == "Round Robin":
-            sample_processes = [
-                ("Process 1", 5, 0, 2),  # name, burst time, arrival time, quantum
-                ("Process 2", 3, 1, 2),
-                ("Process 3", 8, 2, 2)
-            ]
-        else:
-            sample_processes = [
-                ("Process 1", 5, 0),
-                ("Process 2", 3, 1),
-                ("Process 3", 8, 2)
-            ]
-
-        for process in sample_processes:
-            self.process_list.append(process)
-
-            # Format display text based on scheduler type
-            if self.scheduler_type == "FCFS":
-                name, duration, arrival = process
-                display_text = f"{name} (Burst: {duration}s, Arrival: {arrival}s)"
-            elif self.scheduler_type == "SJF":
-                name, duration, arrival, preemptive = process
-                preemptive_text = "Preemptive" if preemptive else "Non-Preemptive"
-                display_text = f"{name} (Burst: {duration}s, Arrival: {arrival}s, {preemptive_text})"
-            elif self.scheduler_type == "Priority":
-                name, duration, arrival, priority, preemptive = process
-                preemptive_text = "Preemptive" if preemptive else "Non-Preemptive"
-                display_text = f"{name} (Burst: {duration}s, Arrival: {arrival}s, Priority: {priority}, {preemptive_text})"
-            elif self.scheduler_type == "Round Robin":
-                name, duration, arrival, quantum = process
-                display_text = f"{name} (Burst: {duration}s, Arrival: {arrival}s, Quantum: {quantum}s)"
-            else:
-                name, duration, arrival = process
-                display_text = f"{name} (Burst: {duration}s, Arrival: {arrival}s)"
-
-            self.process_listbox.insert(tk.END, display_text)
-
-        self.update_gantt_chart()
-
     def delete_selected_process(self):
         selected_index = self.process_listbox.curselection()
         if not selected_index:
@@ -405,7 +341,6 @@ class LiveSchedulerPage(tk.Frame):
             self.process_listbox.delete(index)
             self.update_gantt_chart()
 
-    # Fix crash when adding a process while scheduling and ensure correct arrival time when paused.
     def add_process(self):
         # Validate process name
         name = self.process_name.get().strip()
@@ -464,20 +399,16 @@ class LiveSchedulerPage(tk.Frame):
                 messagebox.showerror("Invalid Input", str(e))
                 return
             
-            # Use the preemptive value from existing processes for consistency
             preemptive = False
             if self.process_list and len(self.process_list[0]) > 4:
                 preemptive = self.process_list[0][4]
             process = (name, duration, arrival_time, priority, preemptive)
         elif self.scheduler_type == "Round Robin":
-            # Determine the quantum to use automatically from original processes
-            default_quantum = 2  # Default value if no original processes exist
+            default_quantum = 2  # Default value
             quantum_to_use = default_quantum
-
-            # Try to get the quantum from the original processes
             if self.original_process_list:
                 try:
-                    # Assuming the 4th element (index 3) is the quantum for RR
+                    # Index 3 is the quantum for RR
                     if len(self.original_process_list[0]) > 3:
                         original_quantum = int(self.original_process_list[0][3])
                         # Validate fetched quantum is positive
@@ -548,13 +479,14 @@ class LiveSchedulerPage(tk.Frame):
         # Wait for scheduler thread to terminate safely
         if self.scheduler_thread and self.scheduler_thread.is_alive():
             try:
-                self.scheduler_thread.join(0.5)  # Increased timeout for safe termination
+                self.scheduler_thread.join(0.5)  # Timeout for safe termination
             except Exception as e:
                 print(f"Thread join error: {e}")
-                # Continue anyway - we'll create a new thread
+                # Continue anyway - we'll create a new thread as the current one is not responding
                 
-        # Keep current time and execution history
-        # But reset other states that might be inconsistent
+        # Keep current time (for simulation continuity and correct arrival time handling)
+        # Keep execution history (for visualization and metrics calculation)
+        # Reset other states that might be inconsistent (to rebuild queues properly with new processes)
         if hasattr(self, 'ready_queue'):
             self.ready_queue = []
         if hasattr(self, 'waiting_queue'):
@@ -566,6 +498,7 @@ class LiveSchedulerPage(tk.Frame):
         
         # Start a new scheduler thread
         self.scheduler_thread = threading.Thread(target=self.run_scheduler)
+        # Set the thread as a daemon so it exits when the main program exits
         self.scheduler_thread.daemon = True
         self.scheduler_thread.start()
 
@@ -576,6 +509,9 @@ class LiveSchedulerPage(tk.Frame):
         margin = 70
 
         # Count unique processes to calculate required height
+        # Includes processes that have run in the past but might be completed
+        # Includes processes that are waiting to run but haven't started yet
+        # Uses a set to automatically eliminate duplicates
         unique_processes = set()
         for entry in self.process_execution_history:
             unique_processes.add(entry[0])
@@ -588,7 +524,9 @@ class LiveSchedulerPage(tk.Frame):
         y_pos = 30
         required_height = y_pos + len(unique_processes) * (bar_height + bar_spacing) + 50  # +50 for time axis
 
-        if self.process_execution_history:
+        # Calculate the total time for the timeline
+        # If there are processes that have run, use the maximum end time from the history
+        if self.process_execution_history: # List of tuples of 4 elements: (process_name, start_time, end_time, status)
             total_time = max(self.current_time, max(end for _, _, end, _ in self.process_execution_history))
         else:
             total_time = max(1, sum(duration for _, duration, *_ in self.process_list))
@@ -619,7 +557,7 @@ class LiveSchedulerPage(tk.Frame):
         process_colors = [
             "#4CAF50", "#2196F3", "#FFC107", "#9C27B0", "#F44336",
             "#009688", "#795548", "#607D8B", "#E91E63", "#673AB7",
-            "#3F51B5", "#FF9800", "#CDDC39", "#8BC34A", "#00BCD4"  # Added more colors
+            "#3F51B5", "#FF9800", "#CDDC39", "#8BC34A", "#00BCD4" 
         ]
         # Sort so color assignment is stable
         sorted_processes = sorted(unique_processes)
@@ -682,9 +620,6 @@ class LiveSchedulerPage(tk.Frame):
                 fill="red", font=("Arial", 8, "bold"), tags="time_marker"
             )
 
-    def update_progressbar_color(self):
-        pass
-
     def toggle_scheduling(self):
         if not self.scheduling_active:
             if not self.process_list:
@@ -692,6 +627,7 @@ class LiveSchedulerPage(tk.Frame):
                 return
             self.scheduling_active = True
             self.play_button.config(text="Pause Scheduling")
+            # Hide arrival time input
             self.arrival_frame.grid_forget()
             self.scheduler_thread = threading.Thread(target=self.run_scheduler)
             self.scheduler_thread.daemon = True
@@ -708,9 +644,6 @@ class LiveSchedulerPage(tk.Frame):
             self.completed_processes = []
             # Ensure original process list is used for lookups if needed
             self.process_details = {p[0]: {"burst": p[1], "arrival": p[2]} for p in self.original_process_list}
-
-
-        # Initialize the appropriate scheduler
         # Pass a copy of the original list of tuples
         scheduler_process_list = self.process_list.copy()
         if self.scheduler_type == "FCFS":
@@ -720,7 +653,6 @@ class LiveSchedulerPage(tk.Frame):
         elif self.scheduler_type == "Priority":
             scheduler = PriorityScheduler(scheduler_process_list)
         elif self.scheduler_type == "Round Robin":
-            # Initialize RR scheduler using the determined quantum from the first original process if available
             default_quantum = 2
             quantum_to_use = default_quantum
             if self.original_process_list:
@@ -731,7 +663,6 @@ class LiveSchedulerPage(tk.Frame):
                             quantum_to_use = original_quantum
                 except (IndexError, ValueError, TypeError):
                     pass  # Use default if error
-
             scheduler = RoundRobinScheduler(scheduler_process_list, quantum_to_use)
         else:
             scheduler = FCFSScheduler(scheduler_process_list)
@@ -741,7 +672,6 @@ class LiveSchedulerPage(tk.Frame):
         self.current_process = None # Tuple of the currently running process
         remaining_time = 0      # Remaining time for self.current_process
         time_quantum_left = 0 # For Round Robin
-
         last_process_name = None # Track changes for history update
 
         while self.scheduling_active:
@@ -752,15 +682,12 @@ class LiveSchedulerPage(tk.Frame):
             self.update_queue_labels()
 
             # 2. Determine scheduling mode (preemptive or non-preemptive)
-            #    This relies on the assumption that all processes have the same flag.
-            #    A more robust design might set this based on initial UI selection.
             preemptive_mode = False
             if self.scheduler_type == "SJF" and self.process_list:
                 if len(self.process_list[0]) > 3:
                     preemptive_mode = self.process_list[0][3]
             elif self.scheduler_type == "Priority" and self.process_list:
                  if len(self.process_list[0]) > 4:
-                     # Assuming PriorityScheduler also uses the last element for preemptive flag
                      preemptive_mode = self.process_list[0][4]
 
             # 3. Decide which process should run NOW based on mode
@@ -769,8 +696,6 @@ class LiveSchedulerPage(tk.Frame):
             preempted_flag = False # Tracks if preemption occurred *this tick*
 
             if preemptive_mode:
-                # Call preemptive logic (SRTF for SJF, Preemptive Priority)
-                # Assumes scheduler has a 'run_preemptive' method if mode is preemptive
                 if hasattr(scheduler, 'run_preemptive'):
                     process_to_run, time_for_process, preempted_flag = scheduler.run_preemptive(
                         self.current_time, self.current_process, remaining_time
@@ -789,7 +714,6 @@ class LiveSchedulerPage(tk.Frame):
                          time_for_process = remaining_time
 
             elif self.scheduler_type == "Round Robin":
-                 # RR logic needs current process, remaining time, and quantum slice
                  process_to_run, time_for_process, time_quantum_left, preempted_flag = scheduler.run(
                      self.current_time, self.current_process, remaining_time, time_quantum_left
                  )
@@ -799,7 +723,6 @@ class LiveSchedulerPage(tk.Frame):
                     if self.scheduler_type == "FCFS":
                          process_to_run, time_for_process = scheduler.run(self.current_time)
                     elif self.scheduler_type in ["SJF", "Priority"]:
-                         # Ensure non-preemptive method exists
                          if hasattr(scheduler, 'run_non_preemptive'):
                               process_to_run, time_for_process = scheduler.run_non_preemptive(self.current_time)
                          else:
@@ -811,7 +734,6 @@ class LiveSchedulerPage(tk.Frame):
                     process_to_run = self.current_process
                     time_for_process = remaining_time # Continue with the current remaining time
 
-            # --- State Update based on Decision ---
             current_process_name = process_to_run[0] if process_to_run else None
 
             # If the running process changed (or started/stopped)
@@ -840,8 +762,6 @@ class LiveSchedulerPage(tk.Frame):
                     self.progress_var.set(0)
 
                 last_process_name = current_process_name
-            # No need for 'elif process_to_run:' here, as remaining_time is handled
-            # when the process is selected/continues.
 
             # --- Execute for one time unit --- 
             if self.current_process:
@@ -901,8 +821,6 @@ class LiveSchedulerPage(tk.Frame):
                          break
 
             # Update Gantt chart (always update to show time marker)
-            # Ensure GUI updates happen on the main thread if needed (Tkinter is usually main thread only)
-            # self.after(0, self.update_gantt_chart) # Example if needed
             self.update_gantt_chart()
 
             # Check for overall completion
@@ -946,12 +864,9 @@ class LiveSchedulerPage(tk.Frame):
         self.canvas.delete("all")
         self.output_button.config(state=tk.DISABLED)
         
-        # Populate listbox with original processes instead of adding sample processes
-        if self.original_process_list:
-            self.populate_from_passed_processes(self.original_process_list)
-        else:
-            # Only add sample processes if no original processes were provided
-            self.add_sample_processes()
+        # Populate listbox with original processes
+        self.populate_from_passed_processes(self.original_process_list)
+        
 
     def go_to_output(self):
         if self.navigate_to_output:
@@ -959,7 +874,7 @@ class LiveSchedulerPage(tk.Frame):
             self.navigate_to_output(
                 completed_processes=self.completed_processes,
                 process_execution_history=self.process_execution_history,
-                process_list=self.process_list.copy(),  # Pass current process list
+                process_list=self.process_list.copy(),
                 scheduler_type=self.scheduler_type
             )
 
@@ -968,7 +883,6 @@ class LiveSchedulerPage(tk.Frame):
             self.scheduling_active = False
             if hasattr(self, 'navigate_to_scheduler') and self.navigate_to_scheduler:
                 # Pass process_list and scheduler_type to navigate back to the scheduler page
-                # The "right" direction argument will be handled in splash_screen.py
                 self.navigate_to_scheduler(self.process_list, self.scheduler_type, back_direction="right")
             else:
                 if self.navigate_home:
